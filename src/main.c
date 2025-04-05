@@ -1,13 +1,28 @@
 #include <stdio.h>
 
 int main(void) {
-    FILE *filePtr;
-    filePtr = fopen("messages.txt", "r");
-    if (filePtr == NULL) {
+    FILE *file;
+    file = fopen("messages.txt", "r");
+    if (file == NULL) {
         printf("Error opening file!\n");
         return 1;
     }
 
-    fclose(filePtr);
+    for (;;) {
+        char buf[9] = {0};
+        size_t bytesRead = bytesRead = fread(buf, 1, 8, file);
+        if (bytesRead == 0) {
+            if (feof(file)) {
+                break;
+            } else {
+                perror("Error reading file");
+                fclose(file);
+                return 1;
+            }
+        }
+        printf("Bytes read: %s\n", buf);
+    }
+
+    fclose(file);
     return 0;
 }
