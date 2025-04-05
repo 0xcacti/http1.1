@@ -1,0 +1,8 @@
+CompileFlags: 
+  Add: [-Wall, -Wextra, -std=c11]
+  Compiler: gcc
+Diagnostics: 
+  UnusedIncludes: Strict
+  ClangTidy: 
+    Add: [modernize*, readability*]
+    Remove: [modernize-use-trailing-return-type]
