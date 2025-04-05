@@ -1,7 +1,13 @@
-#include "http.h"
 #include <stdio.h>
 
 int main(void) {
-    printf("HTTP project, hello world\n");
+    FILE *filePtr;
+    filePtr = fopen("messages.txt", "r");
+    if (filePtr == NULL) {
+        printf("Error opening file!\n");
+        return 1;
+    }
+
+    fclose(filePtr);
     return 0;
 }
