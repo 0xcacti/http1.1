@@ -1,4 +1,9 @@
+#include <libdill.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int test(void) {}
 
 int main(void) {
     FILE *file;
