@@ -45,9 +45,26 @@ coroutine void lines_reader(FILE *file, int ch) {
                 currentLine = tmp;
             }
             strcat(currentLine, buf); // Append part before newline
-            int rc = chsend(ch, currentLine, newLen + 1, -1);
+
+            // First send the length of the string
+            size_t messageLen = strlen(currentLine) + 1; // Include null terminator
+            int rc = chsend(ch, &messageLen, sizeof(messageLen), -1);
             if (rc < 0) {
-                perror("chsend");
+                perror("chsend size");
+                free(currentLine);
+                fclose(file);
+                chdone(ch);
+                return;
+            }
+
+            // Then send the actual string
+            rc = chsend(ch, currentLine, messageLen, -1);
+            if (rc < 0) {
+                perror("chsend message");
+                free(currentLine);
+                fclose(file);
+                chdone(ch);
+                return;
             }
 
             // Reset and copy part after newline
@@ -84,6 +101,15 @@ coroutine void lines_reader(FILE *file, int ch) {
             }
             strcat(currentLine, buf);
             len = newLen;
+        }
+    }
+
+    // If there's a partial line at the end, send it
+    if (strlen(currentLine) > 0) {
+        size_t messageLen = strlen(currentLine) + 1;
+        int rc = chsend(ch, &messageLen, sizeof(messageLen), -1);
+        if (rc >= 0) {
+            chsend(ch, currentLine, messageLen, -1);
         }
     }
 
