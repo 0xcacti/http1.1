@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-int test(void) {}
-
 int main(void) {
     FILE *file;
     file = fopen("messages.txt", "r");
@@ -12,6 +10,9 @@ int main(void) {
         printf("Error opening file!\n");
         return 1;
     }
+
+    char *currentLine = malloc(1024);
+    currentLine[0] = '\0';
 
     for (;;) {
         char buf[9] = {0};
@@ -25,9 +26,22 @@ int main(void) {
                 return 1;
             }
         }
-        printf("Bytes read: %s\n", buf);
+
+        char *newline = strchr(buf, '\n');
+        if (newline != NULL) {
+            *newline = '\0';
+            strcat(currentLine, buf);
+            printf("Bytes read: %s\n", currentLine);
+            currentLine[0] = '\0';
+            if (*(newline + 1)) {
+                strcpy(currentLine, newline + 1);
+            }
+        } else {
+            strcat(currentLine, buf);
+        }
     }
 
+    free(currentLine);
     fclose(file);
     return 0;
 }
