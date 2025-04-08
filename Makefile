@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra 
+CFLAGS = -Wall -Wextra -fno-stack-check
 LIBDILL_CFLAGS := $(shell pkg-config --cflags libdill)
 LIBDILL_LIBS := $(shell pkg-config --libs libdill)
 
