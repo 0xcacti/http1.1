@@ -4,29 +4,36 @@
 #include <stdlib.h>
 #include <string.h>
 
-coroutine void lines_reader(FILE *file, int ch) {
+#define CAP 1024;
+#define PORT 42069;
+#define CONNECTION_BACKLOG 10;
+
+coroutine void lines_reader(int socket, int ch) {
     char *currentLine = malloc(1024);
     if (!currentLine) {
         perror("malloc failed");
-        fclose(file);
+        tcp_close(socket, -1);
         chdone(ch);
         return;
     }
     currentLine[0] = '\0';
-    size_t capacity = 1024;
     size_t len = 0;
 
     for (;;) {
         char buf[9] = {0};
-        size_t bytesRead = fread(buf, 1, 8, file);
-        if (bytesRead == 0) {
-            if (!feof(file)) {
-                perror("Error reading file");
+        ssize_t bytes_read = brecv(socket, buf, 8, -1);
+        if (bytes_read < 0) {
+            if (errno == ECONNRESET || errno == EPIPE) {
+                break; // Connection closed
             }
+            perror("tcp_recv");
             break;
         }
+        if (bytes_read == 0) {
+            break; // EOF, connection closed
+        }
 
-        buf[bytesRead] = '\0';
+        buf[bytes_read] = '\0';
         char *newline = strchr(buf, '\n');
         if (newline != NULL) {
             *newline = '\0';
@@ -119,44 +126,34 @@ coroutine void lines_reader(FILE *file, int ch) {
 }
 
 int main(void) {
-    FILE *file = fopen("messages.txt", "r");
-    if (file == NULL) {
-        printf("Error opening file!\n");
+    struct ipaddr addr;
+    int rc = ipaddr_local(&addr, NULL, 42069, 0);
+    if (rc < 0) {
+        perror("ipaddr_local");
         return 1;
     }
 
-    int ch[2];
-    if (chmake(ch) != 0) {
-        perror("chmake");
-        fclose(file);
+    int listen_socket = tcp_listen(&addr, 10);
+    if (listen_socket < 0) {
+        perror("tcp_listen");
         return 1;
     }
 
-    int cr = go(lines_reader(file, ch[1]));
-    if (cr < 0) {
-        perror("Error creating coroutine");
-        chdone(ch[1]);
-        hclose(ch[0]);
-        hclose(ch[1]);
-        fclose(file);
-        return 1;
-    }
+    printf("Server listening on port %d\n", PORT);
 
     while (1) {
-        size_t msg_size;
-        ssize_t result = chrecv(ch[0], &msg_size, sizeof(msg_size), -1);
-        if (result < 0) {
-            if (errno == EPIPE)
-                break;
-            perror("chrecv size");
-            break;
+        struct ipaddr client_addr;
+        int client_socket = tcp_accept(listen_socket, NULL, -1);
+        if (client_socket < 0) {
+            perror("tcp_accept");
+            continue;
         }
 
-        char *line = malloc(msg_size);
-        if (!line) {
-            perror("malloc");
-            break;
-        }
+        char addr_str[IPADDR_MAXSTRLEN];
+        ipaddr_str(&client_addr, addr_str);
+        printf("Accepted connection from %s\n", addr_str);
+
+        int cr = go(lines_reader(client_socket));
 
         result = chrecv(ch[0], line, msg_size, -1);
         if (result < 0) {
