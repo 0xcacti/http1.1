@@ -4,5 +4,5 @@ CompileFlags:
 Diagnostics: 
   UnusedIncludes: Strict
   ClangTidy: 
-    Add: [modernize*, readability*]
+    Add: [modernize*]
     Remove: [modernize-use-trailing-return-type]
