@@ -9,94 +9,62 @@
 #define CONNECTION_BACKLOG 10
 
 coroutine void lines_reader(int socket, int ch) {
-    char *current_line = malloc(BUFFER_SIZE);
-    if (!current_line) {
-        perror("malloc failed");
-        tcp_close(socket, -1);
+    printf("DEBUG: lines_reader started with socket %d\n", socket);
+
+    // Take ownership of the socket
+    socket = hown(socket);
+    if (socket < 0) {
+        perror("hown failed");
         chdone(ch);
         return;
     }
-    current_line[0] = '\0';
 
-    for (;;) {
-        char buf[9] = {0};
-        ssize_t bytes_read = brecv(socket, buf, 8, -1);
-        printf("Read %zd bytes: '%.*s'\n", bytes_read, (int)bytes_read,
-               buf); // Debug: show what’s read
-        if (bytes_read <= 0) {
-            if (bytes_read < 0 && errno != ECONNRESET && errno != EPIPE) {
-                perror("brecv");
-            }
-            if (strlen(current_line) > 0) {
-                printf("Sending at EOF: '%s'\n", current_line); // Debug: show final send
-                size_t msg_len = strlen(current_line) + 1;
-                int rc = chsend(ch, &msg_len, sizeof(msg_len), -1);
-                if (rc >= 0) {
-                    chsend(ch, current_line, msg_len, -1);
-                } else {
-                    perror("chsend failed at EOF"); // Debug: catch send errors
-                }
-            }
-            break;
+    // Try a very small initial read with minimal timeout
+    char byte;
+    int64_t immediate_deadline = now() + 10; // Just 10ms
+    int rc = brecv(socket, &byte, 1, immediate_deadline);
+
+    if (rc == 0) {
+        printf("DEBUG: Connection closed immediately\n");
+    } else if (rc < 0) {
+        if (errno == ETIMEDOUT) {
+            printf("DEBUG: No data available immediately\n");
+        } else {
+            printf("DEBUG: Initial read failed: %s\n", strerror(errno));
         }
+    } else {
+        // Successfully got 1 byte!
+        printf("DEBUG: Received initial byte: '%c' (0x%02x)\n", byte, (unsigned char)byte);
 
-        buf[bytes_read] = '\0';
-        char *buf_ptr = buf;
-        char *newline;
+        // Try to get more data
+        char buffer[1024] = {0};
+        buffer[0] = byte;
 
-        while ((newline = strchr(buf_ptr, '\n')) != NULL) {
-            *newline = '\0';
-            size_t part_len = newline - buf_ptr;
-            size_t current_len = strlen(current_line);
-            size_t total_len = current_len + part_len;
-            char *combined = malloc(total_len + 1);
-            if (!combined) {
-                perror("malloc failed");
-                free(current_line);
-                tcp_close(socket, -1);
-                chdone(ch);
-                return;
+        // Read as much as possible with a short timeout
+        int64_t quick_deadline = now() + 50; // 50ms
+        rc = brecv(socket, buffer + 1, sizeof(buffer) - 2, quick_deadline);
+
+        if (rc == 0) {
+            printf("DEBUG: Connection closed after initial byte\n");
+        } else if (rc < 0 && errno == ETIMEDOUT) {
+            printf("DEBUG: Got just the initial byte\n");
+        } else if (rc < 0) {
+            printf("DEBUG: Follow-up read failed: %s\n", strerror(errno));
+        } else {
+            // Successfully got more data!
+            buffer[rc + 1] = '\0';
+            printf("DEBUG: Received complete message: '%s'\n", buffer);
+
+            // Send the message through the channel
+            size_t msg_len = strlen(buffer) + 1;
+            rc = chsend(ch, &msg_len, sizeof(msg_len), -1);
+            if (rc >= 0) {
+                chsend(ch, buffer, msg_len, -1);
             }
-            strcpy(combined, current_line);
-            strncat(combined, buf_ptr, part_len);
-
-            printf("Sending line: '%s'\n", combined); // Debug: show each line sent
-            size_t msg_len = total_len + 1;
-            int rc = chsend(ch, &msg_len, sizeof(msg_len), -1);
-            if (rc < 0) {
-                perror("chsend size");
-                free(combined);
-                free(current_line);
-                tcp_close(socket, -1);
-                chdone(ch);
-                return;
-            }
-            rc = chsend(ch, combined, msg_len, -1);
-            if (rc < 0) {
-                perror("chsend message");
-                free(combined);
-                free(current_line);
-                tcp_close(socket, -1);
-                chdone(ch);
-                return;
-            }
-
-            free(combined);
-            current_line[0] = '\0';
-            buf_ptr = newline + 1;
         }
-
-        size_t remaining_len = strlen(buf_ptr);
-        size_t new_len = strlen(current_line) + remaining_len;
-        if (new_len + 1 > BUFFER_SIZE) {
-            fprintf(stderr, "Line too long, truncating\n");
-            current_line[0] = '\0';
-        }
-        strncat(current_line, buf_ptr, BUFFER_SIZE - strlen(current_line) - 1);
-        printf("Current line after append: '%s'\n", current_line); // Debug: show accumulation
     }
 
-    free(current_line);
+    printf("DEBUG: lines_reader exiting\n");
     tcp_close(socket, -1);
     chdone(ch);
 }
@@ -129,7 +97,6 @@ int main(void) {
         ipaddr_str(&client_addr, addr_str);
         printf("Accepted connection from %s\n", addr_str);
 
-        // Create a channel (ch[0] for receiving and ch[1] for sending)
         int ch[2];
         if (chmake(ch) != 0) {
             perror("chmake");
@@ -137,7 +104,6 @@ int main(void) {
             continue;
         }
 
-        // Spawn the lines_reader coroutine using ch[1] as the sending endpoint.
         int cr = go(lines_reader(client_socket, ch[1]));
         if (cr < 0) {
             perror("go");
@@ -147,35 +113,51 @@ int main(void) {
             continue;
         }
 
-        // Receive and print lines from the channel (receive on ch[0])
+        printf("DEBUG: Main loop waiting for messages\n");
+
         while (1) {
+            printf("DEBUG: About to receive message size\n");
+
             size_t msg_size;
             ssize_t result = chrecv(ch[0], &msg_size, sizeof(msg_size), -1);
+
+            printf("DEBUG: chrecv for size returned %zd, msg_size=%zu, errno=%d (%s)\n", result,
+                   msg_size, errno, strerror(errno));
+
             if (result < 0) {
-                if (errno == EPIPE)
-                    break; // Channel closed
+                if (errno == EPIPE) {
+                    printf("DEBUG: Channel closed\n");
+                    break;
+                }
                 perror("chrecv size");
                 break;
             }
 
+            printf("DEBUG: Allocating buffer for message of size %zu\n", msg_size);
             char *line = malloc(msg_size);
             if (!line) {
                 perror("malloc");
                 break;
             }
 
+            printf("DEBUG: About to receive message content\n");
             result = chrecv(ch[0], line, msg_size, -1);
+
+            printf("DEBUG: chrecv for content returned %zd, errno=%d (%s)\n", result, errno,
+                   strerror(errno));
+
             if (result < 0) {
                 if (errno == EPIPE) {
+                    printf("DEBUG: Channel closed while receiving content\n");
                     free(line);
-                    break; // Channel closed
+                    break;
                 }
                 perror("chrecv message");
                 free(line);
                 break;
             }
 
-            printf("%s\n", line); // Print the received line
+            printf("RECEIVED LINE: %s\n", line);
             free(line);
         }
 
