@@ -1,15 +1,15 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -fno-stack-check
-LIBDILL_CFLAGS := $(shell pkg-config --cflags libdill)
-LIBDILL_LIBS := $(shell pkg-config --libs libdill)
-
-CFLAGS += $(LIBDILL_CFLAGS)
-LDFLAGS = $(LIBDILL_LIBS)
+# Replace libdill with libmill
+LIBMILL_CFLAGS := $(shell pkg-config --cflags libmill 2>/dev/null || echo "-I/usr/local/include")
+LIBMILL_LIBS := $(shell pkg-config --libs libmill 2>/dev/null || echo "-L/usr/local/lib -lmill")
+CFLAGS += $(LIBMILL_CFLAGS)
+LDFLAGS = $(LIBMILL_LIBS)
 
 all: http
 
 http: src/main.c src/http.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-clean: 
+clean:
 	rm -f http

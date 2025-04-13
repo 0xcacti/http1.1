@@ -1,6 +1,7 @@
 CompileFlags: 
-  Add: [-Wall, -Wextra, -std=c11, -I/opt/homebrew/opt/libdill/include]
+  Add: [-Wall, -Wextra, -std=c11, -I/usr/local/include]
   Compiler: gcc
+
 Diagnostics: 
   UnusedIncludes: Strict
   ClangTidy: 
