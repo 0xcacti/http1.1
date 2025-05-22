@@ -12,72 +12,26 @@ coroutine void dialogue(tcpsock as, chan lines_ch, chan done_ch) {
     char *current_line_contents = NULL;
     size_t line_capacity = 0;
     size_t line_len = 0;
-    int retries = 0;
 
     while (1) {
-        errno = 0; // Clear errno before each read
         size_t sz = tcprecv(as, buffer, sizeof(buffer), -1);
-        int saved_errno = errno;
+        if (sz == 0) {
+            break; // Connection closed
+        }
 
-        // If we got data, process it
-        if (sz > 0) {
-            retries = 0; // Reset retry counter on successful read
+        // Process the received data
+        char *start = buffer;
+        for (size_t i = 0; i < sz; i++) {
+            if (buffer[i] == '\n') {
+                size_t part_len = &buffer[i] - start;
+                size_t total_len = line_len + part_len;
 
-            // Find newlines in the buffer
-            char *start = buffer;
-            for (size_t i = 0; i < sz; i++) {
-                if (buffer[i] == '\n') {
-                    // Found newline - process the portion before it
-                    size_t part_len = &buffer[i] - start;
-
-                    if (part_len > 0 || line_len > 0) {
-                        // Need to append this part to current line and send
-                        size_t total_len = line_len + part_len;
-
-                        // Ensure we have enough space
-                        if (total_len > line_capacity) {
-                            size_t new_capacity = total_len + 64;
-                            char *new_buffer = realloc(current_line_contents, new_capacity + 1);
-                            if (!new_buffer) {
-                                free(current_line_contents);
-                                tcpclose(as);
-                                chs(done_ch, int, 1);
-                                return;
-                            }
-                            current_line_contents = new_buffer;
-                            line_capacity = new_capacity;
-                        }
-
-                        // Append the part
-                        if (part_len > 0) {
-                            memcpy(current_line_contents + line_len, start, part_len);
-                        }
-
-                        // Send the line
-                        current_line_contents[total_len] = '\0';
-                        chs(lines_ch, char *, current_line_contents);
-
-                        // Reset for next line
-                        current_line_contents = NULL;
-                        line_capacity = line_len = 0;
-                    }
-
-                    start = &buffer[i + 1]; // Start next part after newline
-                }
-            }
-
-            // Handle remaining part (no newline found)
-            size_t remaining = &buffer[sz] - start;
-            if (remaining > 0) {
-                // Need to append to current line
-                size_t new_len = line_len + remaining;
-
-                if (new_len > line_capacity) {
-                    size_t new_capacity = new_len + 64;
+                // Reallocate if needed
+                if (total_len > line_capacity) {
+                    size_t new_capacity = total_len + 64;
                     char *new_buffer = realloc(current_line_contents, new_capacity + 1);
                     if (!new_buffer) {
                         free(current_line_contents);
-                        tcpclose(as);
                         chs(done_ch, int, 1);
                         return;
                     }
@@ -85,41 +39,50 @@ coroutine void dialogue(tcpsock as, chan lines_ch, chan done_ch) {
                     line_capacity = new_capacity;
                 }
 
-                memcpy(current_line_contents + line_len, start, remaining);
-                line_len = new_len;
-            }
-        }
-
-        // If we got an error, try a few more times with timeouts
-        if (saved_errno != 0 && retries < 3) {
-            retries++;
-            errno = 0;
-            sz = tcprecv(as, buffer, sizeof(buffer), now() + 100);
-            if (sz > 0) {
-                saved_errno = 0; // Clear error if we got data
-                continue;        // Go back to process this data
-            }
-        }
-
-        // If we still have an error after retries, exit
-        if (saved_errno != 0 && (sz == 0 || retries >= 3)) {
-            // Send any remaining content
-            if (line_len > 0 && current_line_contents) {
-                current_line_contents[line_len] = '\0';
+                // Append and send line
+                if (part_len > 0) {
+                    memcpy(current_line_contents + line_len, start, part_len);
+                }
+                current_line_contents[total_len] = '\0';
                 chs(lines_ch, char *, current_line_contents);
+
+                // Reset for next line
                 current_line_contents = NULL;
+                line_capacity = line_len = 0;
+                start = &buffer[i + 1];
             }
-            break;
+        }
+
+        // Handle remaining data without newline
+        size_t remaining = &buffer[sz] - start;
+        if (remaining > 0) {
+            size_t new_len = line_len + remaining;
+            if (new_len > line_capacity) {
+                size_t new_capacity = new_len + 64;
+                char *new_buffer = realloc(current_line_contents, new_capacity + 1);
+                if (!new_buffer) {
+                    free(current_line_contents);
+                    chs(done_ch, int, 1);
+                    return;
+                }
+                current_line_contents = new_buffer;
+                line_capacity = new_capacity;
+            }
+            memcpy(current_line_contents + line_len, start, remaining);
+            line_len = new_len;
         }
     }
 
-    // Only free if we still own it
-    if (current_line_contents) {
+    // Send any remaining content
+    if (line_len > 0 && current_line_contents) {
+        current_line_contents[line_len] = '\0';
+        chs(lines_ch, char *, current_line_contents);
+    } else if (current_line_contents) {
         free(current_line_contents);
     }
+
     chdone(lines_ch, char *, NULL);
-    tcpclose(as);
-    chs(done_ch, int, 1); // Signal that we're done
+    chs(done_ch, int, 1);
 }
 
 int main(void) {
@@ -132,6 +95,8 @@ int main(void) {
         perror("Can't open listening socket");
         return 1;
     }
+
+    msleep(now() + 10);
 
     printf("Listening for TCP traffic on :%d\n", PORT);
 
@@ -162,13 +127,17 @@ int main(void) {
                     printf("%s\n", line);
                     free(line);
                 }
-                in(done_ch, int, done) : goto connection_closed;
+                in(done_ch, int, done) : {
+                    (void)done;
+                    goto connection_closed;
+                }
                 end
             }
         }
 
     connection_closed:
         printf("Connection to  %s closed\n", addr_str);
+        tcpclose(as);
         chclose(lines_ch);
         chclose(done_ch);
     }
