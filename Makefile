@@ -6,10 +6,15 @@ LIBMILL_LIBS := $(shell pkg-config --libs libmill 2>/dev/null || echo "-L/usr/lo
 CFLAGS += $(LIBMILL_CFLAGS)
 LDFLAGS = $(LIBMILL_LIBS)
 
-all: http
+all: tcplistener udpsender
 
-http: src/tcplistener/main.c src/tcplistener/http.c
+tcplistener: src/tcplistener/main.c src/tcplistener/http.c
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+udpsender: src/udpsender/main.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm -f http
+	rm -f tcplistener udpsender
+
+.PHONY: all clean
