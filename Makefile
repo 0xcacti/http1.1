@@ -8,7 +8,7 @@ LDFLAGS = $(LIBMILL_LIBS)
 
 all: http
 
-http: src/main.c src/http.c
+http: src/tcplistener/main.c src/tcplistener/http.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
