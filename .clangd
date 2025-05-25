@@ -1,7 +1,11 @@
 CompileFlags: 
-  Add: [-Wall, -Wextra, -std=c11, -I/usr/local/include]
+  Add: 
+    - -Wall
+    - -Wextra
+    - -std=c11
+    - -Iinclude
+    - -I/usr/local/include
   Compiler: gcc
-
 Diagnostics: 
   UnusedIncludes: Strict
   ClangTidy: 
