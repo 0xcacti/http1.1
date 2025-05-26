@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "/absolute/path/to/your/project",
+    "command": "gcc -Wall -Wextra -std=c11 -Iinclude -c src/internal/request/request.c -o src/internal/request/request.o",
+    "file": "src/internal/request/request.c"
+  }
+]
