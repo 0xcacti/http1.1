@@ -5,16 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct request_line {
-    char *http_version;
-    char *request_target;
-    char *method;
-} request_line_t;
-
-typedef struct request {
-    request_line_t *line;
-} request_t;
-
 int is_alphabetic_uppercase(const char *str) {
     if (str == NULL || *str == '\0') {
         return 0;
