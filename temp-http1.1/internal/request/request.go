@@ -32,10 +32,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 }
 
-func parseRequestLine(req string) (RequestLine, error) {
+func parseRequestLine(req string) (RequestLine, int, error) {
 	parts := strings.Split(req, "\r\n")
 	if len(parts) == 0 {
-		return RequestLine{}, fmt.Errorf("No newlines in request, improper format")
+		return RequestLine{}, 0, nil
 	}
 
 	requestLineStr := parts[0]
