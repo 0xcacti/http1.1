@@ -41,17 +41,17 @@ func parseRequestLine(req string) (RequestLine, int, error) {
 	requestLineStr := parts[0]
 	requestLineParts := strings.Split(requestLineStr, " ")
 	if len(parts) < 3 {
-		return RequestLine{}, fmt.Errorf("Cannot parse request-line")
+		return RequestLine{}, len(parts), fmt.Errorf("Cannot parse request-line")
 	}
 
 	method := requestLineParts[0]
 	if method != strings.ToUpper(method) || !isAlphabetic(method) {
-		return RequestLine{}, fmt.Errorf("Method not capitalized")
+		return RequestLine{}, len(parts), fmt.Errorf("Method not capitalized")
 	}
 	requestTarget := requestLineParts[1]
 	httpVersion := requestLineParts[2]
 	if httpVersion != "HTTP/1.1" {
-		return RequestLine{}, fmt.Errorf("We only support HTTP/1.1")
+		return RequestLine{}, len(parts), fmt.Errorf("We only support HTTP/1.1")
 	}
 	numericVersionOnly := strings.TrimPrefix(httpVersion, "HTTP/")
 
@@ -59,7 +59,7 @@ func parseRequestLine(req string) (RequestLine, int, error) {
 		HttpVersion:   numericVersionOnly,
 		RequestTarget: requestTarget,
 		Method:        method,
-	}, nil
+	}, len(parts), nil
 
 }
 
