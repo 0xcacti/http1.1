@@ -14,6 +14,7 @@ type RequestLine struct {
 }
 
 type Request struct {
+	state       int
 	RequestLine RequestLine
 }
 
