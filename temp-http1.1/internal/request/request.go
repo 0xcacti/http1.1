@@ -1,11 +1,14 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
 	"unicode"
 )
+
+const bufferSize = 8
 
 type RequestLine struct {
 	HttpVersion   string
@@ -18,22 +21,57 @@ type Request struct {
 	RequestLine RequestLine
 }
 
+func (r *Request) parse(data []byte) (int, error) {
+	if r.state == 0 {
+		requestLine, bytesRead, err := parseRequestLine(string(data))
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse request line: %w", err)
+		}
+		if bytesRead == 0 {
+			return 0, nil
+		}
+		r.RequestLine = requestLine
+		r.state = 1
+		return bytesRead, nil
+	} else if r.state == 1 {
+		return 0, fmt.Errorf("error: trying to read data in a done state")
+	} else {
+		return 0, fmt.Errorf("unknown state %d", r.state)
+	}
+}
+
 func RequestFromReader(reader io.Reader) (*Request, error) {
-	req, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read request: %w", err)
+	buf := make([]byte, bufferSize, bufferSize)
+	readToIndex := 0
+	r := &Request{state: 0}
+	for r.state != 1 {
+		if len(buf) == bufferSize {
+			newBuf := make([]byte, cap(buf)*2, cap(buf)*2)
+			copy(newBuf, buf)
+			buf = newBuf
+		}
+		n, err := reader.Read(buf[readToIndex:])
+		if err != nil {
+			if err == io.EOF {
+				r.state = 1
+				break
+			}
+			return nil, fmt.Errorf("failed to read from reader: %w", err)
+		}
+		readToIndex += n
+		n, err = r.parse(buf[:readToIndex])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse request: %w", err)
+		}
+		newBuf := make([]byte, 0, bufferSize)
+		copy(newBuf, buf[n:])
+		readToIndex -= n
 	}
-
-	reqLine, err := parseRequestLine(string(req))
-	if err != nil {
-		return nil, err
-	}
-
-	return &Request{RequestLine: reqLine}, nil
-
+	return r, nil
 }
 
 func parseRequestLine(req string) (RequestLine, int, error) {
+	ctrfIdx := bytes.Index(req, []byte("\r\n"))
 	parts := strings.Split(req, "\r\n")
 	if len(parts) == 0 {
 		return RequestLine{}, 0, nil
