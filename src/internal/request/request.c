@@ -22,44 +22,37 @@ int is_alphabetic_uppercase(const char *str) {
     return 1;
 }
 
-int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
-    size_t buffer_capacity = BUFFER_SIZE;
-    char *buffer = malloc(buffer_capacity);
-    if (buffer == NULL) {
+int find_crlf(const char *data, size_t length) {
+    if (data == NULL || length < 2) {
         return -1;
     }
-    size_t read_to_index = 0;
-    out_request->state = INITIALIZED;
 
-    while (out_request->state != DONE) {
-        if (read_to_index >= buffer_capacity) {
-            buffer_capacity *= 2;
-            char *new_buffer = realloc(buffer, buffer_capacity);
-            if (new_buffer == NULL) {
-                free(buffer);
-                return -1;
-            }
-            buffer = new_buffer;
+    for (size_t i = 0; i < length - 1; i++) {
+        if (data[i] == '\r' && data[i + 1] == '\n') {
+            return i;
         }
-        size_t bytes_read =
-            reader(read_context, buffer + read_to_index, BUFFER_SIZE - read_to_index);
     }
 
-    if (reader == NULL || out_request == NULL || length == 0) {
+    return -1;
+}
+
+int parse_request_line(const char *data, size_t length, request_t *out_request) {
+
+    if (data == NULL || out_request == NULL || length == 0) {
         return -1;
     }
 
-    char *line, *saveptr;
-    char *request_copy = strdup(req);
-    if (request_copy == NULL) {
-        return -1;
+    int crlf_index = find_crlf(data, length);
+    if (crlf_index < 0) {
+        return 0;
     }
 
-    line = strtok_r(request_copy, "\r\n", &saveptr);
+    char *line = malloc(crlf_index + 1);
     if (line == NULL) {
-        free(request_copy);
         return -1;
     }
+    memcpy(line, data, crlf_index + 1);
+    line[crlf_index] = '\0';
 
     char *field_saveptr;
     char *method = strtok_r(line, " ", &field_saveptr);
@@ -105,7 +98,74 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
 
     out_request->line = request_line;
     free(request_copy);
+    return crlf_index + 2;
+}
 
+int parse(const char *data, size_t length, request_t *out_request) {
+    if (data == NULL || out_request == NULL || length == 0) {
+        return -1;
+    }
+
+    switch (out_request->state) {
+    case INITIALIZED: {
+        int bytes_parsed = parse_request_line(data, length, out_request);
+        if (bytes_parsed < 0) {
+            return -1;
+        }
+        if (bytes_parsed == 0) {
+            return 0;
+        }
+        out_request->state = DONE;
+        return bytes_parsed;
+    }
+    case DONE:
+        return -1;
+    default:
+        return -1; // Invalid state
+    }
+}
+
+int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
+    size_t buffer_capacity = BUFFER_SIZE;
+    char *buffer = malloc(buffer_capacity);
+    if (buffer == NULL) {
+        return -1;
+    }
+    size_t read_to_index = 0;
+    out_request->state = INITIALIZED;
+
+    while (out_request->state != DONE) {
+        if (read_to_index >= buffer_capacity) {
+            buffer_capacity *= 2;
+            char *new_buffer = realloc(buffer, buffer_capacity);
+            if (new_buffer == NULL) {
+                free(buffer);
+                return -1;
+            }
+            buffer = new_buffer;
+        }
+        ssize_t bytes_read =
+            reader(read_context, buffer + read_to_index, BUFFER_SIZE - read_to_index);
+        if (bytes_read < 0) {
+            free(buffer);
+            return -1;
+        }
+
+        if (bytes_read == 0) {
+            out_request->state = DONE;
+        }
+        read_to_index += bytes_read;
+        int bytes_parsed = parse(buffer, read_to_index, out_request);
+        if (bytes_parsed < 0) {
+            free(buffer);
+            return -1;
+        }
+        if (bytes_parsed > 0) {
+            memmove(buffer, buffer + bytes_parsed, read_to_index);
+            read_to_index -= bytes_parsed;
+        }
+    }
+    free(buffer);
     return 0;
 }
 

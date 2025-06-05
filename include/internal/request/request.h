@@ -26,7 +26,7 @@ typedef struct request {
 typedef ssize_t (*reader_func_t)(void *context, char *buffer, size_t max_bytes);
 
 int is_alphabetic_uppercase(const char *str);
-int request_from_reader(const char *req, size_t length, request_t *out_request);
+int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request);
 void free_request(request_t *request);
 
 
