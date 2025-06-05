@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+
+const int BUFFER_SIZE = 8;
 
 int is_alphabetic_uppercase(const char *str) {
     if (str == NULL || *str == '\0') {
@@ -19,8 +22,30 @@ int is_alphabetic_uppercase(const char *str) {
     return 1;
 }
 
-int request_from_header(const char *req, size_t length, request_t *out_request) {
-    if (req == NULL || out_request == NULL || length == 0) {
+int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
+    size_t buffer_capacity = BUFFER_SIZE;
+    char *buffer = malloc(buffer_capacity);
+    if (buffer == NULL) {
+        return -1;
+    }
+    size_t read_to_index = 0;
+    out_request->state = INITIALIZED;
+
+    while (out_request->state != DONE) {
+        if (read_to_index >= buffer_capacity) {
+            buffer_capacity *= 2;
+            char *new_buffer = realloc(buffer, buffer_capacity);
+            if (new_buffer == NULL) {
+                free(buffer);
+                return -1;
+            }
+            buffer = new_buffer;
+        }
+        size_t bytes_read =
+            reader(read_context, buffer + read_to_index, BUFFER_SIZE - read_to_index);
+    }
+
+    if (reader == NULL || out_request == NULL || length == 0) {
         return -1;
     }
 
