@@ -20,7 +20,7 @@ typedef struct request_line {
 
 typedef struct request {
     parser_state_t state;
-    request_line_t *line;
+    request_line_t *request_line;
 } request_t;
 
 typedef ssize_t (*reader_func_t)(void *context, char *buffer, size_t max_bytes);
