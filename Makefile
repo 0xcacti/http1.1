@@ -10,10 +10,11 @@ LDFLAGS = $(LIBMILL_LIBS)
 TEST_CFLAGS = $(CFLAGS) $(CRITERION_CFLAGS)
 TEST_LIBS = $(CRITERION_LIBS)
 REQUEST_SRC = src/internal/request/request.c
+SOCKET_READER_SRC = src/tcplistener/socket_reader.c
 
 all: tcplistener udpsender
 
-tcplistener: src/tcplistener/main.c src/tcplistener/http.c $(REQUEST_SRC)
+tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(SOCKET_READER_SRC)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 udpsender: src/udpsender/main.c 
