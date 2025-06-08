@@ -27,7 +27,7 @@ test_request: tests/internal/request/test_request.c $(REQUEST_SRC)
 test_headers: tests/internal/headers/test_headers.c $(HEADERS_SRC)
 	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LIBS)
 
-test: test_request
+test: test_request test_headers
 	./test_request
 	./test_headers
 
