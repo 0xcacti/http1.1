@@ -10,7 +10,7 @@ LDFLAGS = $(LIBMILL_LIBS)
 TEST_CFLAGS = $(CFLAGS) $(CRITERION_CFLAGS)
 TEST_LIBS = $(CRITERION_LIBS)
 REQUEST_SRC = src/internal/request/request.c
-HEADERS_SRC = include/internal/headers/headers.h
+HEADERS_SRC = src/internal/headers/headers.c
 SOCKET_READER_SRC = src/tcplistener/socket_reader.c
 
 all: tcplistener udpsender

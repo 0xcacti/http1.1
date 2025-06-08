@@ -1,5 +1,5 @@
+#include "khash.h"
 #include <ctype.h>
-#include <include/khash.h>
 #include <internal/headers/headers.h>
 #include <stdbool.h>
 #include <stdlib.h>

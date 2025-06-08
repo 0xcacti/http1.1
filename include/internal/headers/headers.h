@@ -2,7 +2,7 @@
 #define INTERNAL_HEADERS_HEADERS_H
 
 #include <ctype.h>
-#include <include/khash.h>
+#include "khash.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
