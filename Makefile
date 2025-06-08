@@ -10,11 +10,12 @@ LDFLAGS = $(LIBMILL_LIBS)
 TEST_CFLAGS = $(CFLAGS) $(CRITERION_CFLAGS)
 TEST_LIBS = $(CRITERION_LIBS)
 REQUEST_SRC = src/internal/request/request.c
+HEADERS_SRC = include/internal/headers/headers.h
 SOCKET_READER_SRC = src/tcplistener/socket_reader.c
 
 all: tcplistener udpsender
 
-tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(SOCKET_READER_SRC)
+tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(HEADERS_SRC) $(SOCKET_READER_SRC)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 udpsender: src/udpsender/main.c 
@@ -23,15 +24,20 @@ udpsender: src/udpsender/main.c
 test_request: tests/internal/request/test_request.c $(REQUEST_SRC) 
 	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LIBS)
 
+test_headers: tests/internal/headers/test_headers.c $(HEADERS_SRC)
+	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LIBS)
+
 test: test_request
 	./test_request
+	./test_headers
 
 setup: 
 	mkdir -p include/internal/request
 	mkdir -p src/internal/request
 	mkdir -p tests/internal/request
+	mkdir -p include/internal/headers
 
 clean:
-	rm -f tcplistener udpsender test_request
+	rm -f tcplistener udpsender test_request test_headers
 
 .PHONY: all test setup clean
