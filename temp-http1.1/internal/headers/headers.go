@@ -3,7 +3,6 @@ package headers
 import (
 	"bytes"
 	"fmt"
-	"unicode"
 )
 
 type Headers map[string]string
@@ -29,15 +28,37 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	fieldName := bytes.TrimSpace(headerLine[:colonIdx+1])
-	for _, b := range fieldName {
-		if unicode.IsSpace(rune(b)) {
+
+	for i, b := range fieldName {
+		if i == len(fieldName)-1 && b == ':' {
+			continue
+		}
+		if isInvalid(b) {
 			return 0, false, fmt.Errorf("invalid header field name: %s", fieldName)
 		}
 	}
 	fieldName = headerLine[:colonIdx]
+	fieldName = bytes.ToLower(fieldName)
 
 	fieldValue := bytes.TrimSpace(headerLine[colonIdx+1:])
 	h[string(fieldName)] = string(fieldValue)
 
 	return idx + len(clrf), false, nil
+}
+
+func isInvalid(b byte) bool {
+	r := rune(b)
+
+	if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+		return false
+	}
+
+	allowedSpecial := "!#$%&'*+-.^_`|~"
+	for _, char := range allowedSpecial {
+		if r == char {
+			return false
+		}
+	}
+
+	return true
 }
