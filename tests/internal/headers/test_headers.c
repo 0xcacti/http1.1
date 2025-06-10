@@ -137,23 +137,19 @@ Test(headers, captal_header) {
     free_headers(headers);
 }
 
-// func TestCaptialHeader(t *testing.T) {
-// 	headers := NewHeaders()
-// 	data := []byte("Host: localhost:42069\r\n\r\n")
-// 	n, done, err := headers.Parse(data)
-// 	require.NoError(t, err)
-// 	assert.Equal(t, "localhost:42069", headers["host"])
-// 	assert.Equal(t, 23, n)
-// 	assert.False(t, done)
-// }
-//
-// func TestInvalidHeaderNameCharacter(t *testing.T) {
-// 	headers := NewHeaders()
-// 	data := []byte("H©st: localhost:42069\r\n\r\n")
-// 	n, done, err := headers.Parse(data)
-// 	require.Error(t, err)
-// 	assert.Contains(t, err.Error(), "invalid header field name")
-// 	assert.Equal(t, 0, n)
-// 	assert.False(t, done)
-// }
-//
+Test(headers, invalid_header_name_character) {
+    headers_t *headers = new_headers();
+    cr_assert_not_null(headers, "Headers should not be null");
+
+    const char *data = "H©st: localhost:42069\r\n\r\n";
+    parse_result_t result = parse_headers(headers, data, strlen(data));
+
+    cr_assert_not_null(result.error, "Expected error");
+    cr_assert(strstr(result.error, "invalid header field name") != NULL,
+              "Error should contain 'invalid header field name'");
+    cr_assert_eq(result.n, 0, "Expected 0 bytes consumed");
+    cr_assert_eq(result.done, false, "Expected done to be false");
+
+    free(result.error);
+    free_headers(headers);
+}
