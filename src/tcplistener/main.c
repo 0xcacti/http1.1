@@ -55,6 +55,16 @@ int main(void) {
         printf("- Target: %s\n", request.request_line->request_target);
         printf("- Version: %s\n", request.request_line->http_version);
         printf("Headers:\n");
+        if (request.headers && request.headers->map) {
+            khint_t k;
+            for (k = 0; k < kh_end(request.headers->map); ++k) {
+                if (kh_exist(request.headers->map, k)) {
+                    const char *key = kh_key(request.headers->map, k);
+                    const char *value = kh_value(request.headers->map, k);
+                    printf("- %s: %s\n", key, value);
+                }
+            }
+        }
     }
 
     return 0;
