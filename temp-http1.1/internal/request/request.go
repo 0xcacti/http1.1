@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"main/internal/headers"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -20,6 +21,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
@@ -27,6 +29,7 @@ type Request struct {
 	state       requestState
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 }
 
 type RequestLine struct {
@@ -136,16 +139,39 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		r.state = requestStateParsingHeaders
 		return bytesRead, nil
 	case requestStateParsingHeaders:
-		// func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return 0, fmt.Errorf("failed to parse headers: %w", err)
 		}
 		if done {
-			r.state = requestStateDone
+			fmt.Println("Headers parsed successfully moving into body parsing")
+			r.state = requestStateParsingBody
 		}
 		return n, nil
 
+	case requestStateParsingBody:
+		fmt.Println("Parsing body")
+		if r.Headers.Get("Content-Length") == "" {
+			fmt.Println("No Content-Length header found, skipping body parsing")
+			r.state = requestStateDone
+			return 0, nil
+		}
+		fmt.Println("Parsing body")
+		fmt.Println("Content-Length:", r.Headers.Get("Content-Length"))
+		fmt.Println("Current body length:", len(r.Body))
+		fmt.Println("Data: ", string(data))
+
+		r.Body = append(r.Body, data...)
+		contentLength, err := strconv.Atoi(r.Headers.Get("Content-Length"))
+		if err != nil {
+			return 0, fmt.Errorf("invalid Content-Length header: %w", err)
+		}
+		if len(r.Body) > contentLength {
+			return 0, fmt.Errorf("error: body length %d exceeds Content-Length %d", len(r.Body), contentLength)
+		} else if len(r.Body) == contentLength {
+			r.state = requestStateDone
+		}
+		return len(data), nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:

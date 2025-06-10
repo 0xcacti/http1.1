@@ -3,6 +3,7 @@ package headers
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type Headers map[string]string
@@ -48,6 +49,12 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	return idx + len(clrf), false, nil
+}
+
+func (h Headers) Get(key string) string {
+	key = strings.ToLower(key)
+	value := h[key]
+	return value
 }
 
 func isInvalid(b byte) bool {
