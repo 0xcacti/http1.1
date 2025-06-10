@@ -44,11 +44,22 @@ char *trim_whitespace(const char *str, size_t len) {
     return result;
 }
 
-int to_lower(int c) {
+char to_lower_char(char c) {
     if (c >= 'A' && c <= 'Z') {
         return c + ('a' - 'A');
     }
     return c;
+}
+
+int to_lower(char *str) {
+    if (str == NULL) {
+        return -1; // Error: null pointer
+    }
+
+    for (size_t i = 0; str[i] != '\0'; i++) {
+        str[i] = to_lower_char(str[i]);
+    }
+    return 0; // Success
 }
 
 bool is_invalid(unsigned char b) {
@@ -146,6 +157,14 @@ parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
     }
 
     int ret;
+    int to_lower_result = to_lower(field_name);
+    if (to_lower_result != 0) {
+        free(field_name);
+        free(field_value);
+        result.error = strdup("failed to convert header field name to lowercase");
+        return result;
+    }
+
     khint_t k = kh_put(headers, h->map, field_name, &ret);
     if (ret == -1) {
         free(field_name);

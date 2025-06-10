@@ -22,7 +22,7 @@ Test(headers, valid_single_header) {
     cr_assert_eq(result.error, NULL, "Expected no error");
     cr_assert_not_null(headers, "Headers should not be null");
 
-    const char *host_value = headers_get(headers, "Host");
+    const char *host_value = headers_get(headers, "host");
     cr_assert_str_eq(host_value, "localhost:42069");
     cr_assert_eq(result.n, 23, "Expected 23 bytes consumed");
     cr_assert_eq(result.done, false, "Expected done to be false");
@@ -40,7 +40,7 @@ Test(headers, valid_single_header_with_extra_whitespace) {
     cr_assert_eq(result.error, NULL, "Expected no error");
     cr_assert_not_null(headers, "Headers should not be null");
 
-    const char *host_value = headers_get(headers, "Host");
+    const char *host_value = headers_get(headers, "host");
     cr_assert_str_eq(host_value, "localhost:42069");
     cr_assert_eq(result.n, 38, "Expected 38 bytes consumed");
     cr_assert_eq(result.done, false, "Expected done to be false");
@@ -54,7 +54,7 @@ Test(headers, valid_2_headers_with_existing_headers) {
 
     // Add existing header (you'll need a helper function for this)
     int ret;
-    khint_t k = kh_put(headers, headers->map, strdup("User-Agent"), &ret);
+    khint_t k = kh_put(headers, headers->map, strdup("user-agent"), &ret);
     kh_val(headers->map, k) = strdup("TestAgent");
 
     const char *data = "Host: localhost:42069\r\nContent-Type: application/json\r\n\r\n";
@@ -62,10 +62,10 @@ Test(headers, valid_2_headers_with_existing_headers) {
 
     cr_assert_eq(result.error, NULL, "Expected no error");
 
-    const char *host_value = headers_get(headers, "Host");
+    const char *host_value = headers_get(headers, "host");
     cr_assert_str_eq(host_value, "localhost:42069");
 
-    const char *user_agent_value = headers_get(headers, "User-Agent");
+    const char *user_agent_value = headers_get(headers, "user-agent");
     cr_assert_str_eq(user_agent_value, "TestAgent");
 
     cr_assert_eq(result.n, 23, "Expected 23 bytes consumed");
@@ -78,7 +78,7 @@ Test(headers, valid_2_headers_with_existing_headers) {
 
     cr_assert_eq(result2.error, NULL, "Expected no error on second parse");
 
-    const char *content_type_value = headers_get(headers, "Content-Type");
+    const char *content_type_value = headers_get(headers, "content-type");
     cr_assert_str_eq(content_type_value, "application/json");
 
     cr_assert_eq(result2.n, 32, "Expected 32 bytes consumed");
@@ -118,3 +118,42 @@ Test(headers, invalid_spacing_header) {
     free(result.error);
     free_headers(headers);
 }
+
+Test(headers, captal_header) {
+    headers_t *headers = new_headers();
+    cr_assert_not_null(headers, "Headers should not be null");
+
+    const char *data = "Host: localhost:42069\r\n\r\n";
+    parse_result_t result = parse_headers(headers, data, strlen(data));
+
+    cr_assert_eq(result.error, NULL, "Expected no error");
+    cr_assert_not_null(headers, "Headers should not be null");
+
+    const char *host_value = headers_get(headers, "host");
+    cr_assert_str_eq(host_value, "localhost:42069");
+    cr_assert_eq(result.n, 23, "Expected 23 bytes consumed");
+    cr_assert_eq(result.done, false, "Expected done to be false");
+
+    free_headers(headers);
+}
+
+// func TestCaptialHeader(t *testing.T) {
+// 	headers := NewHeaders()
+// 	data := []byte("Host: localhost:42069\r\n\r\n")
+// 	n, done, err := headers.Parse(data)
+// 	require.NoError(t, err)
+// 	assert.Equal(t, "localhost:42069", headers["host"])
+// 	assert.Equal(t, 23, n)
+// 	assert.False(t, done)
+// }
+//
+// func TestInvalidHeaderNameCharacter(t *testing.T) {
+// 	headers := NewHeaders()
+// 	data := []byte("H©st: localhost:42069\r\n\r\n")
+// 	n, done, err := headers.Parse(data)
+// 	require.Error(t, err)
+// 	assert.Contains(t, err.Error(), "invalid header field name")
+// 	assert.Equal(t, 0, n)
+// 	assert.False(t, done)
+// }
+//
