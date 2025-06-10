@@ -254,3 +254,66 @@ Test(request, header_parse_missing_end_of_headers) {
 
     cr_assert_eq(result, -1, "Expected parsing to fail for incomplete headers");
 }
+
+Test(request, parse_body_standard_body) {
+    char *request_data = "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\nContent-Length: "
+                         "13\r\n\r\nhello world!\n";
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+    cr_assert_eq(result, 0, "Expected successful parsing");
+}
+
+Test(request, parse_body_shorter_than_content_length) {
+    char *request_data = "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\nContent-Length: "
+                         "20\r\n\r\npartial content";
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+    cr_assert_eq(result, -1, "Expected parsing to fail for body shorter than Content-Length");
+}
+
+// func TestBodyParse_EmptyBodyZeroContentLength(t *testing.T){
+//     reader : = &chunkReader{
+//         data : "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\nContent-Length: 0\r\n\r\n",
+//         numBytesPerRead : 3,
+//     } r,
+//     err : = RequestFromReader(reader) require.NoError(t, err) require.NotNil(t, r)
+//                 assert.Empty(t, r.Body)
+// }
+
+Test(request, parse_body_empty_body_zero_content_length) {
+    char *request_data =
+        "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\nContent-Length: 0\r\n\r\n";
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_str_eq(request.body, "", "Expected empty body for zero Content-Length");
+    free_request(&request);
+}
+
+Test(request, parse_body_empty_body_no_reported_content_length) {
+    char *request_data = "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\n\r\n";
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_str_eq(request.body, "", "Expected empty body when no Content-Length is reported");
+    free_request(&request);
+}
+
+Test(request, parse_body_no_content_length_with_body) {
+    char *request_data = "POST /submit HTTP/1.1\r\nHost: localhost:42069\r\n\r\nhello world!";
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_str_eq(request.body, "hello world!", "Expected body to be parsed correctly");
+    free_request(&request);
+}

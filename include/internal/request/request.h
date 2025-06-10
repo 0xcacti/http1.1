@@ -11,6 +11,7 @@
 typedef enum parser_state {
     INITIALIZED,
     PARSING_HEADERS,
+    PARSING_BODY,
     DONE,
 } parser_state_t;
 
@@ -24,6 +25,7 @@ typedef struct request {
     parser_state_t state;
     request_line_t *request_line;
     headers_t *headers;
+    char *body;
 } request_t;
 
 typedef ssize_t (*reader_func_t)(void *context, char *buffer, size_t max_bytes);
