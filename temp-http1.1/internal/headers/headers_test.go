@@ -88,3 +88,22 @@ func TestInvalidHeaderNameCharacter(t *testing.T) {
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
 }
+
+func TestMultipleValuesForHeader(t *testing.T) {
+	headers := NewHeaders()
+	data := []byte("Host: localhost:42069\r\nHost: example.com\r\n\r\n")
+	n, done, err := headers.Parse(data)
+	require.NoError(t, err)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.False(t, done)
+	assert.Equal(t, 23, n)
+	m, done, err := headers.Parse(data[n:]) // Parse again to check if it overwrites
+	require.NoError(t, err)
+	assert.Equal(t, "localhost:42069, example.com", headers["host"])
+	assert.False(t, done)
+	x, done, err := headers.Parse(data[n+m:]) // Parse again to check if it overwrites
+	require.NoError(t, err)
+	assert.Equal(t, "localhost:42069, example.com", headers["host"])
+	assert.Equal(t, 44, n+m+x)
+	assert.True(t, done)
+}

@@ -41,7 +41,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	fieldName = bytes.ToLower(fieldName)
 
 	fieldValue := bytes.TrimSpace(headerLine[colonIdx+1:])
-	h[string(fieldName)] = string(fieldValue)
+	if existing, ok := h[string(fieldName)]; ok {
+		h[string(fieldName)] = existing + ", " + string(fieldValue)
+	} else {
+		h[string(fieldName)] = string(fieldValue)
+	}
 
 	return idx + len(clrf), false, nil
 }
