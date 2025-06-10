@@ -94,3 +94,67 @@ func TestRequestLineParse_InvalidProtocol(t *testing.T) {
 	_, err := RequestFromReader(reader)
 	require.Error(t, err)
 }
+
+func TestHeaderParse_StandardHeaders(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069", r.Headers["host"])
+	assert.Equal(t, "curl/7.81.0", r.Headers["user-agent"])
+	assert.Equal(t, "*/*", r.Headers["accept"])
+}
+
+func TestHeaderParse_MalformedHeader(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	_, err := RequestFromReader(reader)
+	require.Error(t, err)
+}
+
+func TestHeaderParse_EmptyHeaders(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Empty(t, r.Headers)
+}
+
+func TestHeaderParse_DuplicateHeaders(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: example.com\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069, example.com", r.Headers["host"])
+}
+
+func TestHeaderParse_CaseInsensitiveHeaders(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHosT: localhost:42069\r\nhOSt: example.com\r\n\r\n",
+		numBytesPerRead: 3,
+	}
+	r, err := RequestFromReader(reader)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, "localhost:42069, example.com", r.Headers["host"])
+}
+
+func TestHeaderParse_MissingEndOfHeaders(t *testing.T) {
+	reader := &chunkReader{
+		data:            "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0",
+		numBytesPerRead: 3,
+	}
+	_, err := RequestFromReader(reader)
+	require.Error(t, err)
+}
