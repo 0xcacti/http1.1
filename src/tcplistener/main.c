@@ -65,6 +65,10 @@ int main(void) {
                 }
             }
         }
+        printf("Body:\n");
+        if (request.body) {
+            printf("%s\n", request.body);
+        }
     }
 
     return 0;
