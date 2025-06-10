@@ -144,28 +144,22 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, fmt.Errorf("failed to parse headers: %w", err)
 		}
 		if done {
-			fmt.Println("Headers parsed successfully moving into body parsing")
 			r.state = requestStateParsingBody
 		}
 		return n, nil
 
 	case requestStateParsingBody:
-		fmt.Println("Parsing body")
 		if r.Headers.Get("Content-Length") == "" {
-			fmt.Println("No Content-Length header found, skipping body parsing")
 			r.state = requestStateDone
 			return 0, nil
 		}
-		fmt.Println("Parsing body")
-		fmt.Println("Content-Length:", r.Headers.Get("Content-Length"))
-		fmt.Println("Current body length:", len(r.Body))
-		fmt.Println("Data: ", string(data))
 
-		r.Body = append(r.Body, data...)
 		contentLength, err := strconv.Atoi(r.Headers.Get("Content-Length"))
 		if err != nil {
 			return 0, fmt.Errorf("invalid Content-Length header: %w", err)
 		}
+
+		r.Body = append(r.Body, data...)
 		if len(r.Body) > contentLength {
 			return 0, fmt.Errorf("error: body length %d exceeds Content-Length %d", len(r.Body), contentLength)
 		} else if len(r.Body) == contentLength {

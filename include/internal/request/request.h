@@ -26,6 +26,8 @@ typedef struct request {
     request_line_t *request_line;
     headers_t *headers;
     char *body;
+    size_t body_length; 
+    size_t body_capacity;
 } request_t;
 
 typedef ssize_t (*reader_func_t)(void *context, char *buffer, size_t max_bytes);

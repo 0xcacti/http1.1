@@ -292,7 +292,7 @@ Test(request, parse_body_empty_body_zero_content_length) {
     request_t request;
     int result = request_from_reader(chunk_reader, &ctx, &request);
     cr_assert_eq(result, 0, "Expected successful parsing");
-    cr_assert_str_eq(request.body, "", "Expected empty body for zero Content-Length");
+    cr_assert_null(request.body);
     free_request(&request);
 }
 
@@ -303,7 +303,8 @@ Test(request, parse_body_empty_body_no_reported_content_length) {
     request_t request;
     int result = request_from_reader(chunk_reader, &ctx, &request);
     cr_assert_eq(result, 0, "Expected successful parsing");
-    cr_assert_str_eq(request.body, "", "Expected empty body when no Content-Length is reported");
+    printf("Body: '%s'\n", request.body);
+    cr_assert_null(request.body);
     free_request(&request);
 }
 
@@ -314,6 +315,6 @@ Test(request, parse_body_no_content_length_with_body) {
     request_t request;
     int result = request_from_reader(chunk_reader, &ctx, &request);
     cr_assert_eq(result, 0, "Expected successful parsing");
-    cr_assert_str_eq(request.body, "hello world!", "Expected body to be parsed correctly");
+    cr_assert_null(request.body);
     free_request(&request);
 }

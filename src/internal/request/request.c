@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <internal/request/request.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -119,7 +120,6 @@ int parse_single(const char *data, size_t length, request_t *out_request) {
         return bytes_parsed;
     }
     case PARSING_HEADERS: {
-
         parse_result_t result = parse_headers(out_request->headers, data, length);
         if (result.error != NULL) {
             free(result.error);
@@ -127,12 +127,58 @@ int parse_single(const char *data, size_t length, request_t *out_request) {
         }
 
         if (result.done) {
-            out_request->state = DONE;
+            out_request->state = PARSING_BODY;
         }
         return result.n;
     }
-    case DONE:
+    case PARSING_BODY: {
+        const char *content_length_str = headers_get(out_request->headers, "Content-Length");
+        if (content_length_str == NULL) {
+            out_request->state = DONE;
+            return 0;
+        }
 
+        char *endptr;
+        errno = 0;
+        long content_length = strtol(content_length_str, &endptr, 10);
+        if (errno != 0 || endptr == content_length_str || *endptr != '\0' || content_length < 0) {
+            return -1;
+        }
+
+        if (content_length == 0) {
+            out_request->state = DONE;
+            return 0;
+        }
+
+        if (out_request->body == NULL) {
+            out_request->body = malloc(length);
+            if (out_request->body == NULL) {
+                return -1;
+            }
+            out_request->body_length = 0;
+            out_request->body_capacity = length;
+        } else {
+            size_t new_capacity = out_request->body_length + length;
+            char *new_body = realloc(out_request->body, new_capacity);
+            if (new_body == NULL) {
+                return -1;
+            }
+            out_request->body = new_body;
+            out_request->body_capacity = new_capacity;
+        }
+        memcpy(out_request->body + out_request->body_length, data, length);
+        out_request->body_length += length;
+
+        if (out_request->body_length > (size_t)content_length) {
+            return -1;
+        }
+
+        if (out_request->body_length == (size_t)content_length) {
+            out_request->state = DONE;
+        }
+        return length;
+    }
+    case DONE:
         return -1;
     default:
         return -1; // Invalid state
@@ -168,6 +214,9 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
     out_request->state = INITIALIZED;
     out_request->request_line = NULL;
     out_request->headers = new_headers();
+    out_request->body = NULL;
+    out_request->body_length = 0;
+    out_request->body_capacity = 0;
     if (out_request->headers == NULL) {
         free(buffer);
         return -1;
@@ -229,5 +278,12 @@ void free_request(request_t *request) {
     if (request->headers != NULL) {
         free_headers(request->headers);
         request->headers = NULL;
+    }
+
+    if (request->body != NULL) {
+        free(request->body);
+        request->body = NULL;
+        request->body_length = 0;
+        request->body_capacity = 0;
     }
 }
