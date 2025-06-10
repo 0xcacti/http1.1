@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <internal/headers/headers.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -173,10 +174,23 @@ parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
         return result;
     }
     if (ret == 0) {
+        char *old_value = (char *)kh_value(h->map, k);
+        size_t new_len = strlen(old_value) + 2 + strlen(field_value) + 1;
+        char *combined = malloc(new_len);
+        if (combined == NULL) {
+            free(field_name);
+            free(field_value);
+            result.error = strdup("memory allocation failed");
+            return result;
+        }
+        snprintf(combined, new_len, "%s, %s", old_value, field_value);
+        free(old_value);
+        free(field_value);
         free(field_name);
-        free((char *)kh_value(h->map, k));
+        kh_value(h->map, k) = combined;
+    } else {
+        kh_value(h->map, k) = field_value;
     }
-    kh_value(h->map, k) = field_value;
 
     result.n = idx + 2;
     result.done = false;

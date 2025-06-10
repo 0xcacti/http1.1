@@ -153,3 +153,34 @@ Test(headers, invalid_header_name_character) {
     free(result.error);
     free_headers(headers);
 }
+
+Test(headers, multiple_values_for_header) {
+    headers_t *headers = new_headers();
+    cr_assert_not_null(headers, "Headers should not be null");
+    const char *data = "Host: localhost:42069\r\nHost: example.com\r\n\r\n";
+
+    // First parse
+    parse_result_t result1 = parse_headers(headers, data, strlen(data));
+    cr_assert_null(result1.error, "Expected no error on first parse");
+    cr_assert_str_eq(headers_get(headers, "host"), "localhost:42069", "Expected initial value");
+    cr_assert_eq(result1.done, false, "Expected not done after first parse");
+    cr_assert_eq(result1.n, 23, "Expected 23 bytes consumed");
+
+    // Second parse (should concatenate)
+    parse_result_t result2 = parse_headers(headers, data + result1.n, strlen(data) - result1.n);
+    cr_assert_null(result2.error, "Expected no error on second parse");
+    cr_assert_str_eq(headers_get(headers, "host"), "localhost:42069, example.com",
+                     "Expected concatenated value");
+    cr_assert_eq(result2.done, false, "Expected not done after second parse");
+
+    // Third parse (should hit \r\n and set done = true)
+    parse_result_t result3 =
+        parse_headers(headers, data + result1.n + result2.n, strlen(data) - result1.n - result2.n);
+    cr_assert_null(result3.error, "Expected no error on final parse");
+    cr_assert_str_eq(headers_get(headers, "host"), "localhost:42069, example.com",
+                     "Value should remain unchanged");
+    cr_assert_eq(result3.done, true, "Expected done to be true");
+    cr_assert_eq(result1.n + result2.n + result3.n, 44, "Expected total of 44 bytes consumed");
+
+    free_headers(headers);
+}

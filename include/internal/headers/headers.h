@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
 
 KHASH_MAP_INIT_STR(headers, char*)
 
