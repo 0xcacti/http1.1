@@ -3,15 +3,6 @@
 #include <criterion/new/assert.h>
 #include <string.h>
 
-// Helper function to get header value (you'll need to add this to your headers.h)
-const char *headers_get(headers_t *h, const char *key) {
-    khint_t k = kh_get(headers, h->map, key);
-    if (k == kh_end(h->map)) {
-        return NULL;
-    }
-    return kh_val(h->map, k);
-}
-
 Test(headers, valid_single_header) {
     headers_t *headers = new_headers();
     cr_assert_not_null(headers, "Headers should not be null");

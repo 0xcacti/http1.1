@@ -196,3 +196,29 @@ parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
     result.done = false;
     return result;
 }
+
+const char *headers_get(headers_t *h, const char *key) {
+    if (h == NULL || key == NULL || h->map == NULL) {
+        return NULL;
+    }
+
+    size_t key_len = strlen(key);
+    char *lowercase_key = malloc(key_len + 1);
+    if (lowercase_key == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < key_len; i++) {
+        lowercase_key[i] = to_lower_char(key[i]);
+    }
+    lowercase_key[key_len] = '\0';
+
+    khint_t k = kh_get(headers, h->map, lowercase_key);
+    free(lowercase_key);
+
+    if (k == kh_end(h->map)) {
+        return NULL;
+    }
+
+    return kh_value(h->map, k);
+}

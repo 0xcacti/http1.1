@@ -54,6 +54,7 @@ int main(void) {
         printf("- Method: %s\n", request.request_line->method);
         printf("- Target: %s\n", request.request_line->request_target);
         printf("- Version: %s\n", request.request_line->http_version);
+        printf("Headers:\n");
     }
 
     return 0;

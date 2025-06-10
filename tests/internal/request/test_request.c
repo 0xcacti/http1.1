@@ -1,3 +1,4 @@
+#include "internal/headers/headers.h"
 #include "internal/request/request.h"
 #include <criterion/criterion.h>
 #include <criterion/new/assert.h>
@@ -149,4 +150,107 @@ Test(request, method_with_numbers) {
     int result = request_from_reader(chunk_reader, &ctx, &request);
 
     cr_assert_eq(result, -1, "Expected parsing to fail for method with numbers");
+}
+
+Test(request, header_parse_standard_headers) {
+    char *request_data =
+        "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_not_null(request.headers, "Headers should not be null");
+
+    const char *host = headers_get(request.headers, "host");
+    const char *user_agent = headers_get(request.headers, "user-agent");
+    const char *accept = headers_get(request.headers, "accept");
+
+    cr_assert_str_eq(host, "localhost:42069");
+    cr_assert_str_eq(user_agent, "curl/7.81.0");
+    cr_assert_str_eq(accept, "*/*");
+
+    free_request(&request);
+}
+
+Test(request, header_parse_malformed_header) {
+    char *request_data = "GET / HTTP/1.1\r\nHost localhost:42069\r\n\r\n";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, -1, "Expected parsing to fail for malformed header");
+}
+
+Test(request, header_parse_empty_headers) {
+    char *request_data = "GET / HTTP/1.1\r\n\r\n";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_not_null(request.headers, "Headers should not be null");
+
+    // Check that no headers are present by testing a common header
+    const char *host = headers_get(request.headers, "host");
+    cr_assert_null(host, "No headers should be present");
+
+    free_request(&request);
+}
+
+Test(request, header_parse_duplicate_headers) {
+    char *request_data = "GET / HTTP/1.1\r\nHost: localhost:42069\r\nHost: example.com\r\n\r\n";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_not_null(request.headers, "Headers should not be null");
+
+    const char *host = headers_get(request.headers, "host");
+    cr_assert_str_eq(host, "localhost:42069, example.com");
+
+    free_request(&request);
+}
+
+Test(request, header_parse_case_insensitive_headers) {
+    char *request_data = "GET / HTTP/1.1\r\nHosT: localhost:42069\r\nhOSt: example.com\r\n\r\n";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, 0, "Expected successful parsing");
+    cr_assert_not_null(request.headers, "Headers should not be null");
+
+    const char *host = headers_get(request.headers, "host");
+    cr_assert_str_eq(host, "localhost:42069, example.com");
+
+    free_request(&request);
+}
+
+Test(request, header_parse_missing_end_of_headers) {
+    char *request_data = "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0";
+
+    chunk_reader_context_t ctx = {
+        .data = request_data, .length = strlen(request_data), .num_bytes_per_read = 3, .pos = 0};
+
+    request_t request;
+    int result = request_from_reader(chunk_reader, &ctx, &request);
+
+    cr_assert_eq(result, -1, "Expected parsing to fail for incomplete headers");
 }
