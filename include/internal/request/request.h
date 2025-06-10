@@ -6,9 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <internal/headers/headers.h>
 
 typedef enum parser_state {
     INITIALIZED,
+    PARSING_HEADERS,
     DONE,
 } parser_state_t;
 
@@ -21,6 +23,7 @@ typedef struct request_line {
 typedef struct request {
     parser_state_t state;
     request_line_t *request_line;
+    headers_t *headers;
 } request_t;
 
 typedef ssize_t (*reader_func_t)(void *context, char *buffer, size_t max_bytes);

@@ -100,8 +100,8 @@ int parse_request_line(const char *data, size_t length, request_t *out_request) 
     return crlf_index + 2;
 }
 
-int parse(const char *data, size_t length, request_t *out_request) {
-    if (data == NULL || out_request == NULL || length == 0) {
+int parse_single(const char *data, size_t length, request_t *out_request) {
+    if (data == NULL || out_request == NULL) {
         return -1;
     }
 
@@ -114,14 +114,48 @@ int parse(const char *data, size_t length, request_t *out_request) {
         if (bytes_parsed == 0) {
             return 0;
         }
-        out_request->state = DONE;
+
+        out_request->state = PARSING_HEADERS;
         return bytes_parsed;
     }
+    case PARSING_HEADERS: {
+
+        parse_result_t result = parse_headers(out_request->headers, data, length);
+        if (result.error != NULL) {
+            free(result.error);
+            return -1;
+        }
+
+        if (result.done) {
+            out_request->state = DONE;
+        }
+        return result.n;
+    }
     case DONE:
+
         return -1;
     default:
         return -1; // Invalid state
     }
+}
+
+int parse(const char *data, size_t length, request_t *out_request) {
+    if (data == NULL || out_request == NULL || length == 0) {
+        return -1;
+    }
+
+    int total_bytes_parsed = 0;
+    while (out_request->state != DONE) {
+        int n = parse_single(data + total_bytes_parsed, length - total_bytes_parsed, out_request);
+        if (n < 0) {
+            return -1;
+        }
+        if (n == 0) {
+            break;
+        }
+        total_bytes_parsed += n;
+    }
+    return total_bytes_parsed;
 }
 
 int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
@@ -132,6 +166,12 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
     }
     size_t read_to_index = 0;
     out_request->state = INITIALIZED;
+    out_request->request_line = NULL;
+    out_request->headers = new_headers();
+    if (out_request->headers == NULL) {
+        free(buffer);
+        return -1;
+    }
 
     while (out_request->state != DONE) {
         if (read_to_index >= buffer_capacity) {
@@ -152,7 +192,11 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
         }
 
         if (bytes_read == 0) {
-            out_request->state = DONE;
+            if (out_request->state != DONE) {
+                free(buffer);
+                return -1;
+            }
+            break;
         }
         read_to_index += bytes_read;
         int bytes_parsed = parse(buffer, read_to_index, out_request);
@@ -170,13 +214,20 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
 }
 
 void free_request(request_t *request) {
-    if (request == NULL || request->request_line == NULL) {
+    if (request == NULL) {
         return;
     }
 
-    free(request->request_line->method);
-    free(request->request_line->request_target);
-    free(request->request_line->http_version);
-    free(request->request_line);
-    request->request_line = NULL;
+    if (request->request_line != NULL) {
+        free(request->request_line->method);
+        free(request->request_line->request_target);
+        free(request->request_line->http_version);
+        free(request->request_line);
+        request->request_line = NULL;
+    }
+
+    if (request->headers != NULL) {
+        free_headers(request->headers);
+        request->headers = NULL;
+    }
 }

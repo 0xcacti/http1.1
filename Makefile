@@ -21,7 +21,7 @@ tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(HEADERS_SRC) $(SOCKET_READE
 udpsender: src/udpsender/main.c 
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_request: tests/internal/request/test_request.c $(REQUEST_SRC) 
+test_request: tests/internal/request/test_request.c $(REQUEST_SRC) $(HEADERS_SRC)
 	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LIBS)
 
 test_headers: tests/internal/headers/test_headers.c $(HEADERS_SRC)
