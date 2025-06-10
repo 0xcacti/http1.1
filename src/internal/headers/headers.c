@@ -44,6 +44,26 @@ char *trim_whitespace(const char *str, size_t len) {
     return result;
 }
 
+int to_lower(int c) {
+    if (c >= 'A' && c <= 'Z') {
+        return c + ('a' - 'A');
+    }
+    return c;
+}
+
+bool is_invalid(unsigned char b) {
+
+    if ((b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')) {
+        return false;
+    }
+
+    const char *allowed_special = "!#$%&'*+-.^_`|~";
+    if (strchr(allowed_special, b) != NULL) {
+        return false;
+    }
+    return true;
+}
+
 headers_t *new_headers() {
     headers_t *headers = malloc(sizeof(headers_t));
     if (headers == NULL) {
@@ -67,6 +87,8 @@ void free_headers(headers_t *headers) {
     khint_t k;
     for (k = 0; k < kh_end(headers->map); ++k) {
         if (kh_exist(headers->map, k)) {
+            /* free both the key and the value */
+            free((char *)kh_key(headers->map, k));
             free((char *)kh_value(headers->map, k));
         }
     }
@@ -76,7 +98,6 @@ void free_headers(headers_t *headers) {
 
 parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
     parse_result_t result = {0, false, NULL};
-    // int find_bytes(const char *data, size_t len, const char *pattern, size_t pattern_len) {
     int idx = find_bytes(data, len, CLRF, 2);
     if (idx == -1)
         return result;
@@ -107,6 +128,14 @@ parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
     }
     memcpy(field_name, header_line, colon_idx);
     field_name[colon_idx] = '\0';
+    for (int i = 0; i < colon_idx; i++) {
+        if (is_invalid((unsigned char)field_name[i])) {
+            free(field_name);
+            result.error = strdup("invalid header field name");
+            return result;
+        }
+    }
+
     const char *field_value_start = header_line + colon_idx + 1;
     size_t field_value_len = header_line_len - colon_idx - 1;
     char *field_value = trim_whitespace(field_value_start, field_value_len);
@@ -124,11 +153,11 @@ parse_result_t parse_headers(headers_t *h, const char *data, size_t len) {
         result.error = strdup("failed to add header to map");
         return result;
     }
-
     if (ret == 0) {
-        free((char *)kh_val(h->map, k));
+        free(field_name);
+        free((char *)kh_value(h->map, k));
     }
-    kh_val(h->map, k) = field_value;
+    kh_value(h->map, k) = field_value;
 
     result.n = idx + 2;
     result.done = false;
