@@ -6,12 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stddef.h>
 
 typedef struct {
     tcpsock listener;
-    int closed;
-    chan done;
+    volatile int closed;
 } server_t;
 
 coroutine void listen_routine(server_t *server);

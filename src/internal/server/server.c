@@ -1,5 +1,6 @@
 #include <internal/server/server.h>
 #include <libmill.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,13 +17,13 @@ server_t *serve(int port) {
         free(server);
         return NULL;
     }
+    server->done = chmake(int, 0);
 
     go(listen_routine(server));
 
     return server;
 }
-
-void server_close(server_t *server) {
+void close_server(server_t *server) {
     if (server == NULL)
         return;
 
@@ -30,15 +31,18 @@ void server_close(server_t *server) {
     if (server->listener != NULL) {
         tcpclose(server->listener);
     }
+    (void)chr(server->done, int);
+    chclose(server->done);
     free(server);
 }
 
 coroutine void listen_routine(server_t *server) {
-    while (1) {
+    while (!server->closed) {
         tcpsock conn = tcpaccept(server->listener, -1);
-        if (conn == NULL) {
+
+        if (!conn) {
             if (server->closed) {
-                return;
+                break;
             }
             printf("Error accepting connection\n");
             continue;
@@ -46,13 +50,22 @@ coroutine void listen_routine(server_t *server) {
 
         go(handle_connection(conn));
     }
+    chs(server->done, int, -1);
 }
 
 coroutine void handle_connection(tcpsock conn) {
+    // defer conn.Close() equivalent - close on function exit
+
     const char *response = "HTTP/1.1 200 OK\r\n"
                            "Content-Type: text/plain\r\n"
                            "\r\n"
                            "Hello World!\n";
+
+    // conn.Write([]byte(response)) equivalent
     tcpsend(conn, response, strlen(response), -1);
-    tcpclose(conn);
+    tcpflush(conn, -1);
+
+    // Close connection (defer equivalent)
+    tcpshutdown(conn, 1);
+    return;
 }

@@ -4,6 +4,8 @@
 static volatile int shutdown_requested = 0;
 
 void signal_handler(int sig) {
+    (void)sig;
+    printf("\nShutting down server...\n");
     shutdown_requested = 1;
 }
 
