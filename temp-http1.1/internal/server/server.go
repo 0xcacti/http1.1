@@ -2,7 +2,10 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"main/internal/request"
+	"main/internal/response"
 	"net"
 	"sync/atomic"
 )
@@ -12,7 +15,30 @@ type Server struct {
 	closed   atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
+type HandlerError struct {
+	Code    response.StatusCode
+	Message string
+}
+
+func writeError(w io.Writer, e *HandlerError) error {
+	if err := response.WriteStatusLine(w, e.Code); err != nil {
+		return fmt.Errorf("error writing status line: %w", err)
+	}
+
+	headers := response.GetDefaultHeaders(len(e.Message))
+	if err := response.WriteHeaders(w, headers); err != nil {
+		return fmt.Errorf("error writing headers: %w", err)
+	}
+	if _, err := w.Write([]byte(e.Message)); err != nil {
+		return fmt.Errorf("error writing message: %w", err)
+	}
+
+	return nil
+}
+
+type Handler func(w io.Writer, req *request.Request) *HandlerError
+
+func Serve(port int, h Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -48,10 +74,7 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	response := "HTTP/1.1 200 OK\r\n" +
-		"Content-Type: text/plain\r\n" +
-		"\r\n" +
-		"Hello World!\n"
-	conn.Write([]byte(response))
+	response.WriteStatusLine(conn, response.StatusOK)
+	response.WriteHeaders(conn, response.GetDefaultHeaders(0))
 	return
 }
