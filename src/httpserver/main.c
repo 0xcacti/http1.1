@@ -10,23 +10,21 @@ void signal_handler(int sig) {
 }
 
 int main(void) {
-    const int PORT = 42069;
-    server_t *server = serve(PORT);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
+    server_t *server = serve(42069);
     if (!server) {
         printf("Error starting server\n");
         return 1;
     }
 
-    printf("Server started on port %d\n", PORT);
-
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    printf("Server started on port %d\n", 42069);
 
     while (!shutdown_requested) {
         msleep(now() + 100);
     }
 
-    printf("Shutting down  server...\n");
     close_server(server);
     return 0;
 }
