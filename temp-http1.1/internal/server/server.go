@@ -1,60 +1,57 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net"
-	"strconv"
 	"sync/atomic"
 )
 
 type Server struct {
 	listener net.Listener
-	isClosed atomic.Bool
+	closed   atomic.Bool
 }
 
 func Serve(port int) (*Server, error) {
-	l, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
-	server := &Server{
-		listener: l,
+	s := &Server{
+		listener: listener,
 	}
-	go server.listen()
-	return server, nil
+	go s.listen()
+	return s, nil
+}
+
+func (s *Server) Close() error {
+	s.closed.Store(true)
+	if s.listener != nil {
+		return s.listener.Close()
+	}
+	return nil
 }
 
 func (s *Server) listen() {
-	for !s.isClosed.Load() {
+	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
-			return
+			if s.closed.Load() {
+				return
+			}
+			log.Printf("Error accepting connection: %v", err)
+			continue
 		}
-		log.Printf("Accepted connection from %s", conn.RemoteAddr())
 		go s.handle(conn)
 	}
 }
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	buffer := make([]byte, 1024)
-	_, err := conn.Read(buffer)
-	if err != nil {
-		log.Printf("Error reading request: %v", err)
-		return
-	}
-	_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello World!"))
-	if err != nil {
-		log.Printf("Error writing to connection: %v", err)
-		return
-	}
-}
-
-func (s *Server) Close() error {
-	err := s.listener.Close()
-	if err != nil {
-		return err
-	}
-	s.isClosed.Store(true)
-	return nil
+	response := "HTTP/1.1 200 OK\r\n" +
+		"Content-Type: text/plain\r\n" +
+		"\r\n" +
+		"Hello World!\n"
+	conn.Write([]byte(response))
+	return
 }
