@@ -1,0 +1,12 @@
+#include <errno.h>
+#include <libmill.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define PORT 42069
+
+int main(void) {
+    return 0;
+}
