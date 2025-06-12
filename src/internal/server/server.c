@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 server_t *serve(int port) {
-    server_t *server = malloc(sizeof(server_t));
+    server_t *server = malloc(sizeof(*server));
     if (!server)
         return NULL;
 
@@ -16,53 +16,71 @@ server_t *serve(int port) {
         free(server);
         return NULL;
     }
+
     server->closed = 0;
     server->done = chmake(int, 0);
     go(listen_routine(server));
     return server;
 }
+
 void close_server(server_t *server) {
-    if (server == NULL)
+    if (!server)
         return;
 
-    tcpclose(server->listener);
+    /* 1) tell the listener loop to break */
+    server->closed = 1;
+
+    /* 2) block until it acks (via chs) that it’s fully out of tcpaccept() */
     (void)chr(server->done, int);
+
+    /* 3) now safe to close the FD and free resources */
+    tcpclose(server->listener);
     chclose(server->done);
     free(server);
 }
 
 coroutine void listen_routine(server_t *server) {
-    while (1) {
-        tcpsock conn = tcpaccept(server->listener, -1);
-        if (!conn) {
-            if (server->closed)
-                break;
-            printf("Error accepting connection\n");
-            continue;
+    const int64_t timeout_ms = 50;
+    while (!server->closed) {
+        tcpsock conn = tcpaccept(server->listener, now() + timeout_ms);
+        if (conn) {
+            go(handle_connection(conn));
+        } else {
+            int err = errno;
+            if (err == ETIMEDOUT) {
+                /* normal – just no new connection yet */
+                continue;
+            }
+            if (!server->closed) {
+                /* real error */
+                fprintf(stderr, "Error accepting connection: %s\n", strerror(err));
+            }
         }
-        go(handle_connection(conn));
     }
+    /* signal to close_server() that we’re done */
     chs(server->done, int, 1);
 }
-
 coroutine void handle_connection(tcpsock conn) {
+    /* 1) drain until end of headers */
     char buf[1024];
     int n;
-    size_t received = 0;
+    size_t total = 0;
     while ((n = tcprecv(conn, buf, sizeof(buf), now() + 1000)) > 0) {
-        received += n;
-        if (received >= 4 && strstr(buf + (received > 4 ? received - 4 : 0), "\r\n\r\n"))
+        total += n;
+        if (total >= 4 && strstr(buf + (total - 4), "\r\n\r\n"))
             break;
     }
 
-    const char *response = "HTTP/1.1 200 OK\r\n"
-                           "Content-Type: text/plain\r\n"
-                           "\r\n"
-                           "Hello World!\n";
-
+    /* 2) send response */
+    static const char *response = "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/plain\r\n"
+                                  "Connection: close\r\n"
+                                  "\r\n"
+                                  "Hello World!\n";
     tcpsend(conn, response, strlen(response), -1);
     tcpflush(conn, -1);
+
+    /* 3) graceful close */
     tcpshutdown(conn, 1);
     tcpclose(conn);
-    return;
 }
