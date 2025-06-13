@@ -2,11 +2,6 @@
 #define INTERNAL_SERVER_SERVER_H
 
 #include <libmill.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <stddef.h>
 
 typedef struct {
     tcpsock listener;

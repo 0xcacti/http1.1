@@ -1,3 +1,4 @@
+#include <internal/headers/headers.h>
 #include <internal/response/response.h>
 #include <libmill.h>
 #include <stdio.h>
@@ -30,3 +31,5 @@ int write_status_line(tcpsock conn, response_status_t status) {
 
     return tcpsend(conn, status_line, len, -1);
 }
+
+headers_t *get_default_headers(int content_len) {}

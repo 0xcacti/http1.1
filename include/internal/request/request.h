@@ -1,11 +1,6 @@
 #ifndef INTERNAL_REQUEST_REQUEST_H
 #define INTERNAL_REQUEST_REQUEST_H
 
-#include <ctype.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <internal/headers/headers.h>
 
 typedef enum parser_state {

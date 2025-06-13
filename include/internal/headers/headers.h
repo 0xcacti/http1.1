@@ -1,12 +1,8 @@
 #ifndef INTERNAL_HEADERS_HEADERS_H
 #define INTERNAL_HEADERS_HEADERS_H
 
-#include <ctype.h>
 #include "khash.h"
 #include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
 
 
 KHASH_MAP_INIT_STR(headers, char*)
