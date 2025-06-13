@@ -22,7 +22,7 @@ tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(HEADERS_SRC) $(SOCKET_READE
 udpsender: src/udpsender/main.c 
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-httpserver: src/httpserver/main.c $(SERVER_SRC)
+httpserver: src/httpserver/main.c $(SERVER_SRC) 
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test_request: tests/internal/request/test_request.c $(REQUEST_SRC) $(HEADERS_SRC)
