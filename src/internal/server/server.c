@@ -1,3 +1,4 @@
+#include <internal/response/response.h>
 #include <internal/server/server.h>
 #include <libmill.h>
 #include <stddef.h>
@@ -71,16 +72,14 @@ coroutine void handle_connection(tcpsock conn) {
             break;
     }
 
-    /* 2) send response */
-    static const char *response = "HTTP/1.1 200 OK\r\n"
-                                  "Content-Type: text/plain\r\n"
-                                  "Connection: close\r\n"
-                                  "\r\n"
-                                  "Hello World!\n";
-    tcpsend(conn, response, strlen(response), -1);
+    // const char *body = "Hello World!";
+    // int body_length = strlen(body);
+
+    write_status_line(conn, RESPONSE_STATUS_OK);
+    headers_t *headers = get_default_headers(0);
+    write_headers(conn, headers);
     tcpflush(conn, -1);
 
-    /* 3) graceful close */
     tcpshutdown(conn, 1);
     tcpclose(conn);
 }

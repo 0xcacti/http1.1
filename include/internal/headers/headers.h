@@ -21,5 +21,6 @@ headers_t *new_headers(void);
 void free_headers(headers_t *headers);
 parse_result_t parse_headers(headers_t *h, const char *data, size_t len);
 const char *headers_get(headers_t *h, const char *key);
+int headers_set(headers_t *h, const char *field_name, const char *field_value);
 
 #endif

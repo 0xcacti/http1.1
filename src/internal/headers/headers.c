@@ -222,3 +222,45 @@ const char *headers_get(headers_t *h, const char *key) {
 
     return kh_value(h->map, k);
 }
+
+int headers_set(headers_t *h, const char *key, const char *value) {
+    if (h == NULL || key == NULL || value == NULL) {
+        return -1; // Invalid input
+    }
+
+    char *key_copy = strdup(key);
+    if (key_copy == NULL) {
+        return -1;
+    }
+
+    if (to_lower(key_copy) != 0) {
+        free(key_copy);
+        return -1; // Failed to convert key to lowercase
+    }
+
+    int ret;
+    khint_t k = kh_put(headers, h->map, key_copy, &ret);
+    if (ret == -1) {
+        free(key_copy);
+        return -1;
+    }
+
+    char *value_copy = strdup(value);
+    if (value_copy == NULL) {
+        if (ret == 1)
+            kh_del(headers, h->map, k);
+        if (ret == 1)
+            free(key_copy);
+        return -1;
+    }
+
+    if (ret == 0) {
+        free((char *)kh_key(h->map, k));
+        free((char *)kh_value(h->map, k));
+    }
+
+    kh_key(h->map, k) = key_copy;
+    kh_value(h->map, k) = value_copy;
+
+    return 0;
+}

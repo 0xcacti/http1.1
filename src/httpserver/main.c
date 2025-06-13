@@ -1,5 +1,6 @@
 #include "internal/server/server.h"
 #include <signal.h>
+#include <stdio.h>
 
 static volatile int shutdown_requested = 0;
 
