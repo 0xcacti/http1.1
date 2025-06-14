@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,7 @@ import (
 type Server struct {
 	listener net.Listener
 	closed   atomic.Bool
+	handler  Handler
 }
 
 type HandlerError struct {
@@ -45,6 +47,7 @@ func Serve(port int, h Handler) (*Server, error) {
 	}
 	s := &Server{
 		listener: listener,
+		handler:  h,
 	}
 	go s.listen()
 	return s, nil
@@ -84,8 +87,14 @@ func (s *Server) handle(conn net.Conn) {
 			log.Printf("Error writing error response: %v", writeErr)
 		}
 	}
+	buf := bytes.NewBuffer(make([]byte, 1024))
+	hErr := s.handler(buf, r)
+	if writeErr := writeError(conn, hErr); writeErr != nil {
+		log.Printf("Error writing error response: %v", writeErr)
+	}
 
 	response.WriteStatusLine(conn, response.StatusOK)
-	response.WriteHeaders(conn, response.GetDefaultHeaders(0))
+	response.WriteHeaders(conn, response.GetDefaultHeaders(buf.Len()))
+	conn.Write(buf.Bytes())
 	return
 }
