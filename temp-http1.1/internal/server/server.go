@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 )
 
+type Handler func(w io.Writer, req *request.Request) *HandlerError
+
 type Server struct {
 	listener net.Listener
 	closed   atomic.Bool
@@ -31,14 +33,13 @@ func writeError(w io.Writer, e *HandlerError) error {
 	if err := response.WriteHeaders(w, headers); err != nil {
 		return fmt.Errorf("error writing headers: %w", err)
 	}
+
 	if _, err := w.Write([]byte(e.Message)); err != nil {
 		return fmt.Errorf("error writing message: %w", err)
 	}
 
 	return nil
 }
-
-type Handler func(w io.Writer, req *request.Request) *HandlerError
 
 func Serve(port int, h Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -89,8 +90,10 @@ func (s *Server) handle(conn net.Conn) {
 	}
 	buf := bytes.NewBuffer(make([]byte, 1024))
 	hErr := s.handler(buf, r)
-	if writeErr := writeError(conn, hErr); writeErr != nil {
-		log.Printf("Error writing error response: %v", writeErr)
+	if hErr != nil {
+		if writeErr := writeError(conn, hErr); writeErr != nil {
+			log.Printf("Error writing error response: %v", writeErr)
+		}
 	}
 
 	response.WriteStatusLine(conn, response.StatusOK)
