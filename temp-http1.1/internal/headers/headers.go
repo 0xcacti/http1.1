@@ -57,6 +57,11 @@ func (h Headers) Get(key string) string {
 	return value
 }
 
+func (h Headers) Override(key, value string) {
+	key = strings.ToLower(key)
+	h[key] = value
+}
+
 func isInvalid(b byte) bool {
 	r := rune(b)
 

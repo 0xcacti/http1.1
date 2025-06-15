@@ -1,9 +1,18 @@
 package response
 
 import (
+	"fmt"
 	"io"
 	"main/internal/headers"
 	"strconv"
+)
+
+type writerState int
+
+const (
+	writerStateStatusLine writerState = iota
+	writerStateHeaders
+	writerStateBody
 )
 
 type StatusCode int
@@ -15,7 +24,25 @@ const (
 	StatusNotFound      StatusCode = 404
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
+type Writer struct {
+	w           io.Writer
+	writerState writerState
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		w:           w,
+		writerState: writerStateStatusLine,
+	}
+}
+
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+	if w.writerState != writerStateStatusLine {
+		return fmt.Errorf("already wrote status line")
+	}
+
+	defer func() { w.writerState = writerStateHeaders }()
+
 	var reasonPhrase string
 	switch statusCode {
 	case StatusOK:
@@ -30,7 +57,7 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 		reasonPhrase = ""
 	}
 
-	_, err := w.Write([]byte("HTTP/1.1 " + strconv.Itoa(int(statusCode)) + " " + reasonPhrase + "\r\n"))
+	_, err := w.w.Write([]byte("HTTP/1.1 " + strconv.Itoa(int(statusCode)) + " " + reasonPhrase + "\r\n"))
 	return err
 }
 
@@ -42,12 +69,25 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 	return h
 }
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+	if w.writerState != writerStateHeaders {
+		return fmt.Errorf("writting headers in wrong state: %d", w.writerState)
+	}
+	defer func() { w.writerState = writerStateBody }()
+
 	for key, value := range headers {
-		if _, err := w.Write([]byte(key + ": " + value + "\r\n")); err != nil {
+		if _, err := w.w.Write([]byte(key + ": " + value + "\r\n")); err != nil {
 			return err
 		}
 	}
-	_, err := w.Write([]byte("\r\n"))
+	_, err := w.w.Write([]byte("\r\n"))
 	return err
+}
+
+func (w *Writer) WriteBody(body []byte) (int, error) {
+	if w.writerState != writerStateBody {
+		return 0, fmt.Errorf("writting body in wrong state: %d", w.writerState)
+	}
+	defer func() { w.writerState = writerStateStatusLine }()
+	return w.w.Write(body)
 }
