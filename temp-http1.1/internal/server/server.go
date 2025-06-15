@@ -13,32 +13,23 @@ import (
 
 type Handler func(w io.Writer, req *request.Request) *HandlerError
 
-type Server struct {
-	listener net.Listener
-	closed   atomic.Bool
-	handler  Handler
-}
-
 type HandlerError struct {
 	Code    response.StatusCode
 	Message string
 }
 
-func writeError(w io.Writer, e *HandlerError) error {
-	if err := response.WriteStatusLine(w, e.Code); err != nil {
-		return fmt.Errorf("error writing status line: %w", err)
-	}
+func (he HandlerError) Write(w io.Writer) {
+	response.WriteStatusLine(w, he.Code)
+	messageByes := []byte(he.Message)
+	headers := response.GetDefaultHeaders(len(messageByes))
+	response.WriteHeaders(w, headers)
+	w.Write(messageByes)
+}
 
-	headers := response.GetDefaultHeaders(len(e.Message))
-	if err := response.WriteHeaders(w, headers); err != nil {
-		return fmt.Errorf("error writing headers: %w", err)
-	}
-
-	if _, err := w.Write([]byte(e.Message)); err != nil {
-		return fmt.Errorf("error writing message: %w", err)
-	}
-
-	return nil
+type Server struct {
+	listener net.Listener
+	closed   atomic.Bool
+	handler  Handler
 }
 
 func Serve(port int, h Handler) (*Server, error) {
@@ -84,20 +75,20 @@ func (s *Server) handle(conn net.Conn) {
 			Code:    response.StatusBadRequest,
 			Message: fmt.Sprintf("Error reading request: %v", err),
 		}
-		if writeErr := writeError(conn, e); writeErr != nil {
-			log.Printf("Error writing error response: %v", writeErr)
-		}
-	}
-	buf := bytes.NewBuffer(make([]byte, 1024))
-	hErr := s.handler(buf, r)
-	if hErr != nil {
-		if writeErr := writeError(conn, hErr); writeErr != nil {
-			log.Printf("Error writing error response: %v", writeErr)
-		}
+		e.Write(conn)
+		return
 	}
 
+	buf := bytes.NewBuffer([]byte{})
+	hErr := s.handler(buf, r)
+	if hErr != nil {
+		hErr.Write(conn)
+		return
+	}
+
+	b := buf.Bytes()
 	response.WriteStatusLine(conn, response.StatusOK)
-	response.WriteHeaders(conn, response.GetDefaultHeaders(buf.Len()))
-	conn.Write(buf.Bytes())
+	response.WriteHeaders(conn, response.GetDefaultHeaders(len(b)))
+	conn.Write(b)
 	return
 }
