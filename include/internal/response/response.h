@@ -11,6 +11,11 @@ typedef enum {
     RESPONSE_STATUS_INTERNAL_ERROR = 500,
 } response_status_t;
 
+typedef struct {
+    tcpsock conn;
+} response_writer_t;
+
+
 int write_status_line(tcpsock conn, response_status_t status);
 headers_t *get_default_headers(int content_len);
 int write_headers(tcpsock conn, headers_t *headers);
