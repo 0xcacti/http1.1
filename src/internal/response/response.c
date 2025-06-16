@@ -3,6 +3,13 @@
 #include <libmill.h>
 #include <stdio.h>
 
+void response_writer_init(response_writer_t *writer, tcpsock conn) {
+    if (writer) {
+        writer->conn = conn;
+        writer->state = STATUS_LINE;
+    }
+}
+
 int write_status_line(tcpsock conn, response_status_t status) {
     const char *reason_phrase;
     switch (status) {
@@ -30,6 +37,20 @@ int write_status_line(tcpsock conn, response_status_t status) {
     }
 
     return tcpsend(conn, status_line, len, -1);
+}
+
+int response_writer_write_status_line(response_writer_t *writer, response_status_t status) {
+    if (!writer || !writer->conn || writer->state != STATUS_LINE) {
+        return -1;
+    }
+
+    int result = write_status_line(writer->conn, status);
+    if (result < 0) {
+        return -1;
+    }
+
+    writer->state = HEADERS;
+    return 0;
 }
 
 headers_t *get_default_headers(int content_len) {
@@ -76,4 +97,27 @@ int write_headers(tcpsock conn, headers_t *headers) {
     }
 
     return tcpsend(conn, "\r\n", 2, -1);
+}
+
+int response_writer_write_headers(response_writer_t *writer, headers_t *headers) {
+    if (!writer || !writer->conn || writer->state != HEADERS) {
+        return -1;
+    }
+
+    int result = write_headers(writer->conn, headers);
+    if (result < 0) {
+        return -1;
+    }
+
+    writer->state = BODY;
+    return 0;
+}
+
+ssize_t response_writer_write_body(response_writer_t *w, const char *buf, size_t len) {
+    if (w->state != BODY) {
+        errno = EINVAL;
+        return -1;
+    }
+    // -1 = block until all bytes are sent
+    return tcpsend(w->conn, buf, len, -1);
 }
