@@ -1,4 +1,4 @@
-#include "socket_reader.h"
+#include <internal/socket_reader/socket_reader.h>
 
 ssize_t socket_reader(void *context, char *buffer, size_t max_bytes) {
     socket_context_t *ctx = (socket_context_t *)context;

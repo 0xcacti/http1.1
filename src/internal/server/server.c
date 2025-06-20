@@ -7,10 +7,15 @@
 #include <string.h>
 #include <unistd.h>
 
-server_t *serve(int port) {
+server_t *serve(int port, handler *handler) {
     server_t *server = malloc(sizeof(*server));
     if (!server)
         return NULL;
+    if (handler == NULL) {
+        fprintf(stderr, "Error: handler cannot be NULL\n");
+        free(server);
+        return NULL;
+    }
 
     server->listener = tcplisten(iplocal("0.0.0.0", port, IPADDR_IPV4), 10);
     if (!server->listener) {
@@ -20,6 +25,8 @@ server_t *serve(int port) {
 
     server->closed = 0;
     server->done = chmake(int, 0);
+    server->handler = handler;
+
     go(listen_routine(server));
     return server;
 }
@@ -62,15 +69,17 @@ coroutine void listen_routine(server_t *server) {
     chs(server->done, int, 1);
 }
 coroutine void handle_connection(tcpsock conn) {
-    /* 1) drain until end of headers */
-    char buf[1024];
-    int n;
-    size_t total = 0;
-    while ((n = tcprecv(conn, buf, sizeof(buf), now() + 1000)) > 0) {
-        total += n;
-        if (total >= 4 && strstr(buf + (total - 4), "\r\n\r\n"))
-            break;
+    request_t *req = malloc(sizeof(request_t));
+    if (req == NULL) {
+        fprintf(stderr, "Error allocating request\n");
+        tcpshutdown(conn, 1);
+        tcpclose(conn);
+        return;
     }
+
+    socket_context_t ctx = {.socket = conn};
+    request_t request;
+    int success = request_from_reader(conn, &ctx, req);
 
     // const char *body = "Hello World!";
     // int body_length = strlen(body);
@@ -79,7 +88,6 @@ coroutine void handle_connection(tcpsock conn) {
     headers_t *headers = get_default_headers(0);
     write_headers(conn, headers);
     tcpflush(conn, -1);
-
     tcpshutdown(conn, 1);
     tcpclose(conn);
 }

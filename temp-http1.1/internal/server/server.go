@@ -58,7 +58,7 @@ func (s *Server) handle(conn net.Conn) {
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
 		w.WriteStatusLine(response.StatusBadRequest)
-		body := []byte(fmt.Sprintf("Error parsing request: %v", err))
+		body := fmt.Appendf(nil, "Error parsing request: %v", err)
 		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
 		w.WriteBody(body)
 		return
