@@ -29,3 +29,25 @@ int main(void) {
     close_server(server);
     return 0;
 }
+
+void handle_400(response_writer_t *w, request_t *req) {
+    (void)req;
+}
+
+void handle_500(response_writer_t *w, request_t *req) {}
+
+void handle_200(response_writer_t *w, request_t *req) {}
+
+void handle(response_writer_t *w, request_t *req) {
+    char *method = req->request_line->method;
+    if (strcmp(method, "/yourproblem") == 0) {
+        handle_400(w, req);
+        return;
+    }
+    if (strcmp(method, "/myproblem") == 0) {
+        handle_500(w, req);
+        return;
+    }
+    handle_200(w, req);
+    return;
+}
