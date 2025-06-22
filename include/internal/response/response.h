@@ -23,9 +23,10 @@ typedef struct {
     writer_state_t state;
 } response_writer_t;
 
+headers_t *get_default_headers(int content_len);
 void response_writer_init(response_writer_t *writer, tcpsock conn);
-int response_writer_write_status_line(response_writer_t *writer, response_status_t status);
-int response_writer_write_headers(response_writer_t *writer, headers_t *headers);
-ssize_t response_writer_write_body(response_writer_t *writer, const char *data, size_t length);
+int write_status_line(response_writer_t *writer, response_status_t status);
+int write_headers(response_writer_t *writer, headers_t *headers);
+ssize_t write_body(response_writer_t *writer, const char *data, size_t length);
 
 #endif
