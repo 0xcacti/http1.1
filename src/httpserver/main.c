@@ -53,7 +53,7 @@ void handle_500(response_writer_t *w, request_t *req) {
 
 void handle_200(response_writer_t *w, request_t *req) {
     (void)req;
-    write_status_line(w, RESPONSE_STATUS_INTERNAL_ERROR);
+    write_status_line(w, RESPONSE_STATUS_OK);
     char *body = "<html>"
                  "<head>"
                  "<title>200 OK</title>"
@@ -75,7 +75,7 @@ void handle_200(response_writer_t *w, request_t *req) {
 }
 
 void handle(response_writer_t *w, request_t *req) {
-    char *method = req->request_line->method;
+    char *method = req->request_line->request_target;
     if (strcmp(method, "/yourproblem") == 0) {
         handle_400(w, req);
         return;

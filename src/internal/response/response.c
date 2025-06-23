@@ -94,5 +94,9 @@ ssize_t write_body(response_writer_t *w, const char *buf, size_t len) {
     }
 
     w->state = STATUS_LINE;
-    return tcpsend(w->conn, buf, len, -1);
+    int r = tcpsend(w->conn, buf, len, -1);
+    if (r < 0) {
+        return -1;
+    }
+    return r;
 }
