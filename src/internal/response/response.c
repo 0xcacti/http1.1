@@ -10,7 +10,7 @@ void response_writer_init(response_writer_t *writer, tcpsock conn) {
     }
 }
 
-int write_status_line(tcpsock conn, response_status_t status) {
+int write_status_line(response_writer_t *w, response_status_t status) {
     const char *reason_phrase;
     switch (status) {
     case RESPONSE_STATUS_OK:
@@ -36,21 +36,8 @@ int write_status_line(tcpsock conn, response_status_t status) {
         return -1;
     }
 
-    return tcpsend(conn, status_line, len, -1);
-}
-
-int response_writer_write_status_line(response_writer_t *writer, response_status_t status) {
-    if (!writer || !writer->conn || writer->state != STATUS_LINE) {
-        return -1;
-    }
-
-    int result = write_status_line(writer->conn, status);
-    if (result < 0) {
-        return -1;
-    }
-
-    writer->state = HEADERS;
-    return 0;
+    w->state = HEADERS;
+    return tcpsend(w->conn, status_line, len, -1);
 }
 
 headers_t *get_default_headers(int content_len) {
@@ -72,8 +59,8 @@ headers_t *get_default_headers(int content_len) {
     return headers;
 }
 
-int write_headers(tcpsock conn, headers_t *headers) {
-    if (!conn || !headers || !headers->map) {
+int write_headers(response_writer_t *w, headers_t *headers) {
+    if (!w->conn || !headers || !headers->map) {
         return -1;
     }
 
@@ -90,34 +77,22 @@ int write_headers(tcpsock conn, headers_t *headers) {
                 return -1;
             }
 
-            if (tcpsend(conn, header_line, len, -1) < 0) {
+            if (tcpsend(w->conn, header_line, len, -1) < 0) {
                 return -1;
             }
         }
     }
 
-    return tcpsend(conn, "\r\n", 2, -1);
+    w->state = BODY;
+    return tcpsend(w->conn, "\r\n", 2, -1);
 }
 
-int response_writer_write_headers(response_writer_t *writer, headers_t *headers) {
-    if (!writer || !writer->conn || writer->state != HEADERS) {
-        return -1;
-    }
-
-    int result = write_headers(writer->conn, headers);
-    if (result < 0) {
-        return -1;
-    }
-
-    writer->state = BODY;
-    return 0;
-}
-
-ssize_t response_writer_write_body(response_writer_t *w, const char *buf, size_t len) {
+ssize_t write_body(response_writer_t *w, const char *buf, size_t len) {
     if (w->state != BODY) {
         errno = EINVAL;
         return -1;
     }
-    // -1 = block until all bytes are sent
+
+    w->state = STATUS_LINE;
     return tcpsend(w->conn, buf, len, -1);
 }

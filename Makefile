@@ -13,7 +13,7 @@ REQUEST_SRC = src/internal/request/request.c
 HEADERS_SRC = src/internal/headers/headers.c
 SERVER_SRC = src/internal/server/server.c
 RESPONSE_SRC = src/internal/response/response.c
-SOCKET_READER_SRC = src/tcplistener/socket_reader.c
+SOCKET_READER_SRC = src/internal/socket_reader/socket_reader.c
 
 all: tcplistener udpsender httpserver
 
@@ -23,7 +23,7 @@ tcplistener: src/tcplistener/main.c $(REQUEST_SRC) $(HEADERS_SRC) $(SOCKET_READE
 udpsender: src/udpsender/main.c 
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-httpserver: src/httpserver/main.c $(SERVER_SRC) $(RESPONSE_SRC) $(HEADERS_SRC) 
+httpserver: src/httpserver/main.c $(SERVER_SRC) $(RESPONSE_SRC) $(REQUEST_SRC) $(HEADERS_SRC) $(SOCKET_READER_SRC) 
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test_request: tests/internal/request/test_request.c $(REQUEST_SRC) $(HEADERS_SRC)

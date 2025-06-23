@@ -15,7 +15,7 @@ typedef struct {
 } server_t;
 
 coroutine void listen_routine(server_t *server);
-coroutine void handle_connection(tcpsock conn);
+coroutine void handle_connection(server_t *server, response_writer_t *w);
 
 server_t *serve(int port, handler *handler);
 void close_server(server_t*);

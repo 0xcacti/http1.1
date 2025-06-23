@@ -1,5 +1,5 @@
 #include "internal/request/request.h"
-#include "socket_reader.h"
+#include "internal/socket_reader/socket_reader.h"
 #include <errno.h>
 #include <libmill.h>
 #include <stdio.h>
@@ -44,11 +44,6 @@ int main(void) {
             tcpclose(as);
             continue;
         }
-
-        // fmt.Println("Request line:")
-        // fmt.Printf("- Method: %s\n", request.RequestLine.Method)
-        // fmt.Printf("- Target: %s\n", request.RequestLine.RequestTarget)
-        // fmt.Printf("- Version: %s\n", request.RequestLine.HttpVersion)
 
         printf("Request line:");
         printf("- Method: %s\n", request.request_line->method);

@@ -1,6 +1,6 @@
 #include <internal/response/response.h>
 #include <internal/server/server.h>
-#inc
+#include <internal/socket_reader/socket_reader.h>
 #include <libmill.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -36,13 +36,8 @@ void close_server(server_t *server) {
     if (!server)
         return;
 
-    /* 1) tell the listener loop to break */
     server->closed = 1;
-
-    /* 2) block until it acks (via chs) that it’s fully out of tcpaccept() */
     (void)chr(server->done, int);
-
-    /* 3) now safe to close the FD and free resources */
     tcpclose(server->listener);
     chclose(server->done);
     free(server);
@@ -52,43 +47,45 @@ coroutine void listen_routine(server_t *server) {
     const int64_t timeout_ms = 50;
     while (!server->closed) {
         tcpsock conn = tcpaccept(server->listener, now() + timeout_ms);
+        response_writer_t *w = malloc(sizeof(response_writer_t));
+        response_writer_init(w, conn);
         if (conn) {
-            go(handle_connection(conn));
+            go(handle_connection(server, w));
         } else {
             int err = errno;
             if (err == ETIMEDOUT) {
-                /* normal – just no new connection yet */
                 continue;
             }
             if (!server->closed) {
-                /* real error */
                 fprintf(stderr, "Error accepting connection: %s\n", strerror(err));
             }
         }
     }
-    /* signal to close_server() that we’re done */
     chs(server->done, int, 1);
 }
-coroutine void handle_connection(tcpsock conn) {
+coroutine void handle_connection(server_t *s, response_writer_t *w) {
     request_t *req = malloc(sizeof(request_t));
     if (req == NULL) {
         fprintf(stderr, "Error allocating request\n");
-        tcpshutdown(conn, 1);
-        tcpclose(conn);
+        tcpshutdown(w->conn, 1);
+        tcpclose(w->conn);
+        free(w);
         return;
     }
 
-    socket_context_t ctx = {.socket = conn};
+    socket_context_t ctx = {.socket = w->conn};
     request_t request;
-    int success = request_from_reader(conn, &ctx, req);
+    int result = request_from_reader(socket_reader, &ctx, &request);
+    if (result < 0) {
+        write_status_line(w, RESPONSE_STATUS_BAD_REQUEST);
+        char *body = "Error parsing request";
+        int body_len = strlen(body);
+        headers_t *headers = get_default_headers(body_len);
+        write_headers(w, headers);
+        write_body(w, body, body_len);
+        return;
+    }
 
-    // const char *body = "Hello World!";
-    // int body_length = strlen(body);
-
-    write_status_line(conn, RESPONSE_STATUS_OK);
-    headers_t *headers = get_default_headers(0);
-    write_headers(conn, headers);
-    tcpflush(conn, -1);
-    tcpshutdown(conn, 1);
-    tcpclose(conn);
+    s->handler(w, req);
+    return;
 }

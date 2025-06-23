@@ -206,7 +206,7 @@ int parse(const char *data, size_t length, request_t *out_request) {
 
 int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
     size_t buffer_capacity = BUFFER_SIZE;
-    ssize_t socket_context = char *buffer = malloc(buffer_capacity);
+    char *buffer = malloc(buffer_capacity);
     if (buffer == NULL) {
         return -1;
     }
