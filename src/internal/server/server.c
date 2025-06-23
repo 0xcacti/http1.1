@@ -99,5 +99,6 @@ coroutine void handle_connection(server_t *s, response_writer_t *w) {
     tcpshutdown(w->conn, 1);
     tcpclose(w->conn);
     free_request(req);
+    free(w);
     return;
 }

@@ -203,6 +203,7 @@ int parse(const char *data, size_t length, request_t *out_request) {
 }
 
 int request_from_reader(reader_func_t reader, void *read_context, request_t *out_request) {
+    printf("we make it to here\n");
     size_t buffer_capacity = BUFFER_SIZE;
     char *buffer = malloc(buffer_capacity);
     if (buffer == NULL) {
@@ -218,9 +219,11 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
         free(buffer);
         return -1;
     }
+    printf("we make it to here 2\n");
 
     size_t read_to_index = 0;
     while (out_request->state != DONE) {
+        printf("we make it to here 3\n");
         if (read_to_index >= buffer_capacity) {
             buffer_capacity *= 2;
             char *new_buffer = realloc(buffer, buffer_capacity);
@@ -237,13 +240,25 @@ int request_from_reader(reader_func_t reader, void *read_context, request_t *out
             free(buffer);
             return -1;
         }
+        fprintf(stderr, "[%zd bytes] ", bytes_read);
+        for (ssize_t i = 0; i < bytes_read; i++) {
+            fprintf(stderr, "%02x ", (unsigned char)buffer[read_to_index + i]);
+        }
+        fprintf(stderr, "\n");
+
+        fflush(stderr);
 
         if (bytes_read == 0) {
-            out_request->state = DONE;
+            if (out_request->state != DONE) {
+                free(buffer);
+                return -1;
+            }
             break;
         }
-        read_to_index += bytes_read;
+
+        read_to_index += (size_t)bytes_read;
         int bytes_parsed = parse(buffer, read_to_index, out_request);
+        printf("DEBUG: bytes_parsed=%d, state=%d\n", bytes_parsed, out_request->state);
         if (bytes_parsed < 0) {
             free(buffer);
             return -1;
