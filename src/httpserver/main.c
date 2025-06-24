@@ -74,6 +74,8 @@ void handle_200(response_writer_t *w, request_t *req) {
     write_body(w, body, len_body);
 }
 
+void forward_proxy(response_writer_t *w, request_t *req) {}
+
 void handle(response_writer_t *w, request_t *req) {
     char *method = req->request_line->request_target;
     if (strcmp(method, "/yourproblem") == 0) {
