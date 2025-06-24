@@ -62,6 +62,13 @@ func (h Headers) Override(key, value string) {
 	h[key] = value
 }
 
+func (h *Headers) Delete(key string) string {
+	key = strings.ToLower(key)
+	value := (*h)[key]
+	delete(*h, key)
+	return value
+}
+
 func isInvalid(b byte) bool {
 	r := rune(b)
 

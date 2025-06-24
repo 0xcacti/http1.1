@@ -13,6 +13,8 @@ const (
 	writerStateStatusLine writerState = iota
 	writerStateHeaders
 	writerStateBody
+	writerStateChunkedBody
+	writerStateChunkedBodyDone
 )
 
 type StatusCode int
@@ -90,4 +92,30 @@ func (w *Writer) WriteBody(body []byte) (int, error) {
 	}
 	defer func() { w.writerState = writerStateStatusLine }()
 	return w.w.Write(body)
+}
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.writerState != writerStateChunkedBody {
+		return 0, fmt.Errorf("writting chunked body in wrong state: %d", w.writerState)
+	}
+	sizeHex := strconv.FormatInt(int64(len(p)), 16)
+	if _, err := w.w.Write([]byte(sizeHex + "\r\n")); err != nil {
+		return 0, err
+	}
+
+	_, err := w.w.Write(append(p, []byte("\r\n")...))
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := w.w.Write([]byte("\r\n")); err != nil {
+		return 0, err
+	}
+
+	return len(p), nil
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	defer func() { w.writerState = writerStateStatusLine }()
+	return w.w.Write([]byte("0\r\n\r\n"))
 }

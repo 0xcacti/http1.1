@@ -1,12 +1,16 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"main/internal/request"
 	"main/internal/response"
 	"main/internal/server"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 )
 
@@ -37,8 +41,59 @@ func handler(w *response.Writer, req *request.Request) {
 		handler500(w, req)
 		return
 	}
+	if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+		target := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin")
+		forwardProxy(w, req, target)
+		return
+	}
 	handler200(w, req)
 	return
+}
+
+func forwardProxy(w *response.Writer, req *request.Request, target string) {
+	resp, err := http.Get("https://httpbin.org" + target)
+	if err != nil {
+		handler500(w, req)
+		return
+	}
+	defer resp.Body.Close()
+
+	if err := w.WriteStatusLine(response.StatusOK); err != nil {
+		handler500(w, req)
+		return
+	}
+
+	headers := response.GetDefaultHeaders(0)
+	headers.Delete("Content-Length")
+	headers.Override("Transfer-Encoding", "chunked")
+	if err := w.WriteHeaders(req.Headers); err != nil {
+		handler500(w, req)
+		return
+	}
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			handler500(w, req)
+			return
+		}
+		if n > 0 {
+			fmt.Printf("Read %d bytes: %x\n", n, n)
+			if _, werr := w.WriteBody(buf[:n]); werr != nil {
+				return
+			}
+		}
+	}
+
+	if _, err := w.WriteChunkedBodyDone(); err != nil {
+		handler500(w, req)
+		return
+	}
+
 }
 
 func handler400(w *response.Writer, _ *request.Request) {
