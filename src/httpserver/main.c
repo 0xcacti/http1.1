@@ -1,7 +1,15 @@
 #include "internal/response/response.h"
 #include "internal/server/server.h"
+#include <curl/curl.h>
 #include <signal.h>
 #include <stdio.h>
+
+typedef struct {
+    response_writer_t *w;
+    request_t *req;
+    CURL *curl;
+    int called;
+} proxy_ctx_t;
 
 static volatile int shutdown_requested = 0;
 
@@ -74,7 +82,62 @@ void handle_200(response_writer_t *w, request_t *req) {
     write_body(w, body, len_body);
 }
 
-void forward_proxy(response_writer_t *w, request_t *req) {}
+static size_t header_cb(char *buf, size_t size, size_t nmemb, void *userdata) {
+    proxy_ctx_t *ctx = userdata;
+    size_t len = size * nmemb;
+
+    if (!ctx->called) {
+        long status = 0;
+        curl_easy_getinfo(ctx->curl, CURLINFO_RESPONSE_CODE, &status);
+
+        if (write_status_line(ctx->w, (int)status) < 0) {
+            handle_500(ctx->w, ctx->req);
+            return 0;
+        }
+    }
+    headers_t *hdrs = get_default_headers(0);
+    headers_delete(hdrs, "Content-Length");
+    headers_set(hdrs, "Transfer-Encoding", "chunked");
+    if (write_headers(ctx->w, hdrs) < 0) {
+        handle_500(ctx->w, ctx->req);
+        free_headers(hdrs);
+        return 0;
+    }
+    free_headers(hdrs);
+    ctx->called = 1;
+
+    return len;
+}
+
+void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        handle_500(w, req);
+        return;
+    }
+
+    char *url = malloc(strlen("https://httpbin.org") + strlen(target) + 1);
+    sprintf(url, "https://httpbin.org%s", target);
+
+    proxy_ctx_t ctx = {.w = w, .req = req, .called = 0};
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_cb);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &ctx);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
+
+    if (curl_easy_perform(curl) != CURLE_OK) {
+        handle_500(w, req);
+    } else {
+        if (write_chunked_body_done(w) < 0) {
+            handle_500(w, req);
+        }
+    }
+    free(url);
+    curl_easy_cleanup(curl);
+}
 
 void handle(response_writer_t *w, request_t *req) {
     char *method = req->request_line->request_target;

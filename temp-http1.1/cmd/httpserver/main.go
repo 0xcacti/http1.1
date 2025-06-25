@@ -66,7 +66,7 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 	headers := response.GetDefaultHeaders(0)
 	headers.Delete("Content-Length")
 	headers.Override("Transfer-Encoding", "chunked")
-	if err := w.WriteHeaders(req.Headers); err != nil {
+	if err := w.WriteHeaders(headers); err != nil {
 		handler500(w, req)
 		return
 	}
@@ -83,7 +83,7 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 		}
 		if n > 0 {
 			fmt.Printf("Read %d bytes: %x\n", n, n)
-			if _, werr := w.WriteBody(buf[:n]); werr != nil {
+			if _, werr := w.WriteChunkedBody(buf[:n]); werr != nil {
 				return
 			}
 		}

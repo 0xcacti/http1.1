@@ -5,6 +5,7 @@ import (
 	"io"
 	"main/internal/headers"
 	"strconv"
+	"strings"
 )
 
 type writerState int
@@ -75,7 +76,13 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	if w.writerState != writerStateHeaders {
 		return fmt.Errorf("writting headers in wrong state: %d", w.writerState)
 	}
-	defer func() { w.writerState = writerStateBody }()
+	defer func() {
+		if strings.EqualFold(headers.Get("Transfer-Encoding"), "chunked") {
+			w.writerState = writerStateChunkedBody
+		} else {
+			w.writerState = writerStateBody
+		}
+	}()
 
 	for key, value := range headers {
 		if _, err := w.w.Write([]byte(key + ": " + value + "\r\n")); err != nil {
@@ -103,8 +110,7 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 		return 0, err
 	}
 
-	_, err := w.w.Write(append(p, []byte("\r\n")...))
-	if err != nil {
+	if _, err := w.w.Write(p); err != nil {
 		return 0, err
 	}
 

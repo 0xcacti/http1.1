@@ -264,3 +264,30 @@ int headers_set(headers_t *h, const char *key, const char *value) {
 
     return 0;
 }
+
+int headers_delete(headers_t *h, const char *key) {
+    if (h == NULL || key == NULL || h->map == NULL) {
+        return -1;
+    }
+
+    char *lower = strdup(key);
+    if (lower == NULL) {
+        return -1;
+    }
+
+    if (to_lower(lower) != 0) {
+        free(lower);
+        return -1;
+    }
+
+    khint_t k = kh_get(headers, h->map, lower);
+    free(lower);
+    if (k == kh_end(h->map)) {
+        return 0;
+    }
+
+    free((char *)kh_key(h->map, k));
+    free((char *)kh_value(h->map, k));
+    kh_del(headers, h->map, k);
+    return 0;
+}
