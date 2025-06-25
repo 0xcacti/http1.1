@@ -16,6 +16,8 @@ typedef enum {
     STATUS_LINE,
     HEADERS,
     BODY,
+    ChunkedBody,
+    ChunkedBodyDone
 } writer_state_t;
 
 typedef struct {
@@ -28,5 +30,7 @@ void response_writer_init(response_writer_t *writer, tcpsock conn);
 int write_status_line(response_writer_t *writer, response_status_t status);
 int write_headers(response_writer_t *writer, headers_t *headers);
 ssize_t write_body(response_writer_t *writer, const char *data, size_t length);
+int write_chunked_body(response_writer_t *writer, const char *data, size_t length);
+int write_chunked_body_done(response_writer_t *writer);
 
 #endif
