@@ -1,15 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -fno-stack-check -Iinclude
-BREW_CURL       := $(shell brew --prefix curl 2>/dev/null || echo "/usr/local/opt/curl")
-LIBCURL_CFLAGS := $(shell pkg-config --cflags libcurl 2>/dev/null || echo "-I$(BREW_CURL)/include")
-LIBCURL_LIBS   := $(shell pkg-config --libs   libcurl 2>/dev/null || echo "-L$(BREW_CURL)/lib -lcurl")
 LIBMILL_CFLAGS := $(shell pkg-config --cflags libmill 2>/dev/null || echo "-I/usr/local/include")
 LIBMILL_LIBS := $(shell pkg-config --libs libmill 2>/dev/null || echo "-L/usr/local/lib -lmill")
 CRITERION_CFLAGS := $(shell pkg-config --cflags criterion 2>/dev/null || echo "-I/usr/local/include")
 CRITERION_LIBS := $(shell pkg-config --libs criterion 2>/dev/null || echo "-L/usr/local/lib -lcriterion")
 
-CFLAGS += $(LIBMILL_CFLAGS) $(LIBCURL_CFLAGS)
-LDFLAGS = $(LIBMILL_LIBS) $(LIBCURL_LIBS)
+CFLAGS += $(LIBMILL_CFLAGS) 
+LDFLAGS = $(LIBMILL_LIBS) 
 TEST_CFLAGS = $(CFLAGS) $(CRITERION_CFLAGS)
 TEST_LIBS = $(CRITERION_LIBS)
 REQUEST_SRC = src/internal/request/request.c
