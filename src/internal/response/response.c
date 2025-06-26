@@ -89,7 +89,6 @@ int write_headers(response_writer_t *w, headers_t *headers) {
 
 ssize_t write_body(response_writer_t *w, const char *buf, size_t len) {
     if (w->state != BODY) {
-        errno = EINVAL;
         return -1;
     }
 
@@ -100,3 +99,26 @@ ssize_t write_body(response_writer_t *w, const char *buf, size_t len) {
     }
     return r;
 }
+
+int write_chunked_body(response_writer_t *writer, const char *data, size_t length) {
+    if (writer->state != CHUNKED_BODY) {
+        return -1;
+    }
+
+    size_t buf_size = sizeof(size_t) * 2 + 1;
+    char *size_hex = malloc(buf_size);
+    if (size_hex == NULL) {
+        return -1;
+    }
+    snprintf(size_hex, buf_size, "%zx\r\n", length);
+    int r = tcpsend(writer->conn, size_hex, strlen(size_hex), -1);
+    free(size_hex);
+    if (r < 0) return -1;
+    r = tcpsend(writer->conn, data, length, -1);
+    if (r < 0) return -1;
+    int r_e = tcpsend(writer->conn, "\r\n", 2, -1);
+    if (r_e < 0) return -1;
+    return r;
+}
+
+int write_chunked_body_done(response_writer_t *writer) {}

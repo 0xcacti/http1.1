@@ -6,3 +6,4 @@ ColumnLimit: 100
 AlignAfterOpenBracket: Align
 AllowShortFunctionsOnASingleLine: Empty
 BreakBeforeBraces: Attach
+AllowShortIfStatementsOnASingleLine: true
