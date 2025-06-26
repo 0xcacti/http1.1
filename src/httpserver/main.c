@@ -2,6 +2,7 @@
 #include "internal/server/server.h"
 #include <signal.h>
 #include <stdio.h>
+#include <string.h>
 
 static volatile int shutdown_requested = 0;
 
@@ -75,6 +76,7 @@ void handle_200(response_writer_t *w, request_t *req) {
 }
 
 void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
+    printf("do we hit this branch\n");
     ipaddr addr = ipremote("httpbin.org", 80, IPADDR_IPV4, -1);
     tcpsock sock = tcpconnect(addr, -1);
     if (sock == NULL) {
@@ -89,7 +91,7 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
                            "Connection: close\r\n"
                            "\r\n",
                            target);
-    if (tcpsend(sock, reqbuf, req_len, -1) != (size_t)req_len) {
+    if (tcpsend(sock, reqbuf, req_len, -1) != (size_t)req_len || tcpflush(sock, -1) < 0) {
         tcpclose(sock);
         handle_500(w, req);
         return;
@@ -100,7 +102,9 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
     int headers_done = 0;
 
     while (1) {
+        printf("we make it to here\n");
         ssize_t r = tcprecv(sock, buf + buf_len, sizeof(buf) - buf_len - 1, -1);
+        printf("stuck on tcprecv\n");
         if (r < 0) {
             tcpclose(sock);
             handle_500(w, req);
@@ -110,8 +114,9 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
             break;
         }
         buf_len += (size_t)r;
+        buf[buf_len] = '\0';
         if (!headers_done) {
-            char *eoh = memmem(buf, buf_len, "\r\n\r\n", 4);
+            char *eoh = strstr(buf, "\r\n\r\n");
             if (eoh == NULL) {
                 if (buf_len == sizeof(buf)) {
                     tcpclose(sock);
@@ -124,6 +129,8 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
             headers_t *headers = get_default_headers(0);
             headers_delete(headers, "Content-Length");
             headers_set(headers, "Transfer-Encoding", "chunked");
+            printf("going to write headers\n");
+            fflush(stdout);
             write_headers(w, headers);
             free_headers(headers);
 
@@ -154,6 +161,13 @@ void handle(response_writer_t *w, request_t *req) {
         handle_500(w, req);
         return;
     }
+    if (strncmp(method, "/httpbin", 8) == 0) {
+        printf("we made it");
+        const char *target = method + 8;
+        forward_proxy(w, req, target);
+        return;
+    }
+
     handle_200(w, req);
     return;
 }

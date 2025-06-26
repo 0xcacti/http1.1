@@ -83,7 +83,14 @@ int write_headers(response_writer_t *w, headers_t *headers) {
         }
     }
 
-    w->state = BODY;
+    printf("hello hello, hola");
+    const char *te = headers_get(headers, "Transfer-Encoding");
+    if (te && strcmp(te, "chunked") == 0) {
+        printf("Transfer-Encoding: chunked\r\n");
+        w->state = CHUNKED_BODY;
+    } else {
+        w->state = BODY;
+    }
     return tcpsend(w->conn, "\r\n", 2, -1);
 }
 
@@ -121,4 +128,11 @@ int write_chunked_body(response_writer_t *writer, const char *data, size_t lengt
     return r;
 }
 
-int write_chunked_body_done(response_writer_t *writer) {}
+int write_chunked_body_done(response_writer_t *writer) {
+    int r = tcpsend(writer->conn, "0\r\n\r\n", 5, -1);
+    if (r < 0) {
+        return -1;
+    }
+    writer->state = STATUS_LINE;
+    return r;
+}
