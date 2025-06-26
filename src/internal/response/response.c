@@ -83,10 +83,8 @@ int write_headers(response_writer_t *w, headers_t *headers) {
         }
     }
 
-    printf("hello hello, hola");
     const char *te = headers_get(headers, "Transfer-Encoding");
     if (te && strcmp(te, "chunked") == 0) {
-        printf("Transfer-Encoding: chunked\r\n");
         w->state = CHUNKED_BODY;
     } else {
         w->state = BODY;
