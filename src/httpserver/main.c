@@ -76,7 +76,6 @@ void handle_200(response_writer_t *w, request_t *req) {
 }
 
 void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
-    printf("do we hit this branch\n");
     ipaddr addr = ipremote("httpbin.org", 80, IPADDR_IPV4, -1);
     tcpsock sock = tcpconnect(addr, -1);
     if (sock == NULL) {
@@ -91,20 +90,21 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
                            "Connection: close\r\n"
                            "\r\n",
                            target);
-    if (tcpsend(sock, reqbuf, req_len, -1) != (size_t)req_len || tcpflush(sock, -1) < 0) {
+    ssize_t sent = tcpsend(sock, reqbuf, req_len, -1);
+    if (sent != (long)req_len) {
         tcpclose(sock);
         handle_500(w, req);
         return;
     }
+
+    tcpflush(sock, -1);
 
     char buf[4096];
     size_t buf_len = 0;
     int headers_done = 0;
 
     while (1) {
-        printf("we make it to here\n");
         ssize_t r = tcprecv(sock, buf + buf_len, sizeof(buf) - buf_len - 1, -1);
-        printf("stuck on tcprecv\n");
         if (r < 0) {
             tcpclose(sock);
             handle_500(w, req);
@@ -129,7 +129,6 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
             headers_t *headers = get_default_headers(0);
             headers_delete(headers, "Content-Length");
             headers_set(headers, "Transfer-Encoding", "chunked");
-            printf("going to write headers\n");
             fflush(stdout);
             write_headers(w, headers);
             free_headers(headers);
@@ -162,7 +161,6 @@ void handle(response_writer_t *w, request_t *req) {
         return;
     }
     if (strncmp(method, "/httpbin", 8) == 0) {
-        printf("we made it");
         const char *target = method + 8;
         forward_proxy(w, req, target);
         return;
