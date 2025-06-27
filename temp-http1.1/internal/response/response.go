@@ -128,7 +128,6 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 }
 
 func (w *Writer) WriteTrailers(headers headers.Headers) error {
-	fmt.Println("Writing trailers")
 	if w.writerState != writerStateTrailers {
 		return fmt.Errorf("writting headers in wrong state: %d", w.writerState)
 	}

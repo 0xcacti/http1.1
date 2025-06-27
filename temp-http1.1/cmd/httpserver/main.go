@@ -100,7 +100,6 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 	hash := sha256.Sum256(full)
 	trailers.Delete("Content-Length")
 	trailers.Add("X-Content-Sha256", fmt.Sprintf("%x", hash))
-	fmt.Println("SHA256:", fmt.Sprintf("%x", hash))
 	trailers.Add("X-Content-Length", fmt.Sprintf("%d", len(full)))
 	if err := w.WriteTrailers(trailers); err != nil {
 		handler500(w, req)
