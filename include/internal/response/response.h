@@ -17,7 +17,8 @@ typedef enum {
     HEADERS,
     BODY,
     CHUNKED_BODY,
-    CHUNKED_BODY_DONE
+    CHUNKED_BODY_DONE,
+    TRAILERS
 } writer_state_t;
 
 typedef struct {

@@ -99,6 +99,9 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
 
     tcpflush(sock, -1);
 
+    char *full = NULL;
+    size_t full_len = 0;
+
     char buf[4096];
     size_t buf_len = 0;
     int headers_done = 0;
@@ -119,6 +122,7 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
             char *eoh = strstr(buf, "\r\n\r\n");
             if (eoh == NULL) {
                 if (buf_len == sizeof(buf)) {
+                    free(full);
                     tcpclose(sock);
                     handle_500(w, req);
                     return;
@@ -129,24 +133,46 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
             headers_t *headers = get_default_headers(0);
             headers_delete(headers, "Content-Length");
             headers_set(headers, "Transfer-Encoding", "chunked");
-            fflush(stdout);
             write_headers(w, headers);
             free_headers(headers);
 
             size_t header_len = (eoh + 4) - buf;
             size_t body_len = buf_len - header_len;
             if (body_len > 0) {
+                char *tmp = realloc(full, full_len + body_len);
+                if (tmp == NULL) {
+                    free(full);
+                    tcpclose(sock);
+                    handle_500(w, req);
+                    return;
+                }
+                full = tmp;
+                memcpy(full + full_len, buf + header_len, body_len);
+                full_len += body_len;
                 write_chunked_body(w, buf + header_len, body_len);
             }
             memmove(buf, buf + header_len, body_len);
             buf_len = body_len;
             headers_done = 1;
         } else {
+            if (buf_len > 0) {
+                char *tmp = realloc(full, full_len + buf_len);
+                if (tmp == NULL) {
+                    free(full);
+                    tcpclose(sock);
+                    handle_500(w, req);
+                    return;
+                }
+                full = tmp;
+                memcpy(full + full_len, buf, buf_len);
+                full_len += buf_len;
+            }
             write_chunked_body(w, buf, buf_len);
             buf_len = 0;
         }
     }
     write_chunked_body_done(w);
+    free(full);
     tcpclose(sock);
 }
 

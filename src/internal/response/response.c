@@ -127,10 +127,37 @@ int write_chunked_body(response_writer_t *writer, const char *data, size_t lengt
 }
 
 int write_chunked_body_done(response_writer_t *writer) {
-    int r = tcpsend(writer->conn, "0\r\n\r\n", 5, -1);
+    int r = tcpsend(writer->conn, "0\r\n", 3, -1);
     if (r < 0) {
         return -1;
     }
-    writer->state = STATUS_LINE;
+    writer->state = TRAILERS;
     return r;
+}
+
+int write_trailers(response_writer_t *writer, headers_t *trailers) {
+    if (writer->state != TRAILERS || !trailers || !trailers->map) {
+        return -1;
+    }
+
+    char trailer_line[1024];
+    khint_t k;
+
+    for (k = 0; k < kh_end(trailers->map); ++k) {
+        if (kh_exist(trailers->map, k)) {
+            const char *key = kh_key(trailers->map, k);
+            const char *value = kh_value(trailers->map, k);
+
+            int len = snprintf(trailer_line, sizeof(trailer_line), "%s: %s\r\n", key, value);
+            if (len < 0 || len >= (int)sizeof(trailer_line)) {
+                return -1;
+            }
+
+            if (tcpsend(writer->conn, trailer_line, len, -1) < 0) {
+                return -1;
+            }
+        }
+    }
+
+    return tcpsend(writer->conn, "\r\n", 2, -1);
 }
