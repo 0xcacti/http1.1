@@ -69,6 +69,15 @@ func (h *Headers) Delete(key string) string {
 	return value
 }
 
+func (h *Headers) Add(key, value string) {
+	key = strings.ToLower(key)
+	if existing, ok := (*h)[key]; ok {
+		(*h)[key] = existing + ", " + value
+	} else {
+		(*h)[key] = value
+	}
+}
+
 func isInvalid(b byte) bool {
 	r := rune(b)
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -71,6 +72,7 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 		return
 	}
 
+	full := []byte{}
 	buf := make([]byte, 1024)
 	for {
 		n, err := resp.Body.Read(buf)
@@ -82,7 +84,7 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 			return
 		}
 		if n > 0 {
-			fmt.Printf("Read %d bytes: %x\n", n, n)
+			full = append(full, buf[:n]...)
 			if _, werr := w.WriteChunkedBody(buf[:n]); werr != nil {
 				return
 			}
@@ -94,6 +96,16 @@ func forwardProxy(w *response.Writer, req *request.Request, target string) {
 		return
 	}
 
+	trailers := response.GetDefaultHeaders(0)
+	hash := sha256.Sum256(full)
+	trailers.Delete("Content-Length")
+	trailers.Add("X-Content-Sha256", fmt.Sprintf("%x", hash))
+	fmt.Println("SHA256:", fmt.Sprintf("%x", hash))
+	trailers.Add("X-Content-Length", fmt.Sprintf("%d", len(full)))
+	if err := w.WriteTrailers(trailers); err != nil {
+		handler500(w, req)
+		return
+	}
 }
 
 func handler400(w *response.Writer, _ *request.Request) {

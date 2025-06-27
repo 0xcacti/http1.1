@@ -16,6 +16,7 @@ const (
 	writerStateBody
 	writerStateChunkedBody
 	writerStateChunkedBodyDone
+	writerStateTrailers
 )
 
 type StatusCode int
@@ -122,6 +123,23 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	defer func() { w.writerState = writerStateStatusLine }()
-	return w.w.Write([]byte("0\r\n\r\n"))
+	defer func() { w.writerState = writerStateTrailers }()
+	return w.w.Write([]byte("0\r\n"))
+}
+
+func (w *Writer) WriteTrailers(headers headers.Headers) error {
+	fmt.Println("Writing trailers")
+	if w.writerState != writerStateTrailers {
+		return fmt.Errorf("writting headers in wrong state: %d", w.writerState)
+	}
+	defer func() {
+		w.writerState = writerStateStatusLine
+	}()
+	for key, value := range headers {
+		if _, err := w.w.Write([]byte(key + ": " + value + "\r\n")); err != nil {
+			return err
+		}
+	}
+	_, err := w.w.Write([]byte("\r\n"))
+	return err
 }
