@@ -1,5 +1,6 @@
 #include "internal/response/response.h"
 #include "internal/server/server.h"
+#include <openssl/sha.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -172,6 +173,7 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
         }
     }
     write_chunked_body_done(w);
+
     free(full);
     tcpclose(sock);
 }

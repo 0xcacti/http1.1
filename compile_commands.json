@@ -1,17 +1,1 @@
-[
-  {
-    "directory": "/Users/t/code/c/http1.1/",
-    "command": "gcc -Wall -Wextra -fno-stack-check -Iinclude -I/opt/homebrew/Cellar/criterion/2.4.2_2/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/ffi -I/opt/homebrew/Cellar/libgit2/1.9.0/include -I/opt/homebrew/Cellar/nanomsg/1.2/include -c tests/internal/request/test_request.c",
-    "file": "tests/internal/request/test_request.c"
-  },
-  {
-    "directory": "/Users/t/code/c/http1.1/",
-    "command": "gcc -Wall -Wextra -fno-stack-check -Iinclude -I/opt/homebrew/Cellar/criterion/2.4.2_2/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/ffi -I/opt/homebrew/Cellar/libgit2/1.9.0/include -I/opt/homebrew/Cellar/nanomsg/1.2/include -c tests/internal/headers/test_headers.c",
-    "file": "tests/internal/headers/test_headers.c"
-  },
-  {
-    "directory": "/Users/t/code/c/http1.1/",
-    "command": "gcc -Wall -Wextra -fno-stack-check -Iinclude -c src/internal/request/request.c",
-    "file": "src/internal/request/request.c"
-  }
-]
+[]
