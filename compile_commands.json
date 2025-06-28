@@ -1,1 +1,72 @@
-[]
+[
+ {
+  "directory": "/Users/t/code/c/http1.1",
+  "arguments": [
+   "gcc",
+   "-Wall",
+   "-Wextra",
+   "-fno-stack-check",
+   "-Iinclude",
+   "-I/usr/local/include",
+   "-I/opt/homebrew/Cellar/openssl@3/3.5.0/include",
+   "-o",
+   "httpserver",
+   "src/httpserver/main.c",
+   "src/internal/server/server.c",
+   "src/internal/response/response.c",
+   "src/internal/request/request.c",
+   "src/internal/headers/headers.c",
+   "src/internal/socket_reader/socket_reader.c",
+   "-L/usr/local/lib",
+   "-lmill",
+   "-L/opt/homebrew/Cellar/openssl@3/3.5.0/lib",
+   "-lssl",
+   "-lcrypto"
+  ],
+  "file": "src/internal/socket_reader/socket_reader.c"
+ },
+ {
+  "directory": "/Users/t/code/c/http1.1",
+  "arguments": [
+   "gcc",
+   "-Wall",
+   "-Wextra",
+   "-fno-stack-check",
+   "-Iinclude",
+   "-I/usr/local/include",
+   "-I/opt/homebrew/Cellar/openssl@3/3.5.0/include",
+   "-o",
+   "udpsender",
+   "src/udpsender/main.c",
+   "-L/usr/local/lib",
+   "-lmill",
+   "-L/opt/homebrew/Cellar/openssl@3/3.5.0/lib",
+   "-lssl",
+   "-lcrypto"
+  ],
+  "file": "src/udpsender/main.c"
+ },
+ {
+  "directory": "/Users/t/code/c/http1.1",
+  "arguments": [
+   "gcc",
+   "-Wall",
+   "-Wextra",
+   "-fno-stack-check",
+   "-Iinclude",
+   "-I/usr/local/include",
+   "-I/opt/homebrew/Cellar/openssl@3/3.5.0/include",
+   "-I/opt/homebrew/Cellar/criterion/2.4.2_2/include",
+   "-I/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/ffi",
+   "-I/opt/homebrew/Cellar/libgit2/1.9.0/include",
+   "-I/opt/homebrew/Cellar/nanomsg/1.2/include",
+   "-o",
+   "test_headers",
+   "tests/internal/headers/test_headers.c",
+   "src/internal/headers/headers.c",
+   "-L/opt/homebrew/Cellar/criterion/2.4.2_2/lib",
+   "-lcriterion"
+  ],
+  "file": "src/internal/headers/headers.c"
+ }
+]

@@ -47,4 +47,9 @@ setup:
 clean:
 	rm -f tcplistener udpsender test_request test_headers
 
-.PHONY: all test setup clean
+cdb: 
+	@rm -f compile_commands.json
+	@compiledb --output compile_commands.json make all test
+	@echo "✓ compile_commands.json regenerated"
+
+.PHONY: all test setup clean cdb
