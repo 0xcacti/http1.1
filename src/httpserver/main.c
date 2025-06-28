@@ -174,6 +174,21 @@ void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
     }
     write_chunked_body_done(w);
 
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256((unsigned char *)full, full_len, digest);
+    char hexhash[SHA256_DIGEST_LENGTH * 2 + 1] = {0};
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+        snprintf(hexhash + i * 2, 3, "%02x", digest[i]);
+    }
+
+    headers_t *trailers = get_default_headers(0);
+    headers_delete(trailers, "Content-Length");
+    headers_set(trailers, "X-Content-Sha256", hexhash);
+    char lenbuf[32];
+    snprintf(lenbuf, sizeof(lenbuf), "%zu", full_len);
+    headers_set(trailers, "X-Content-Length", lenbuf);
+    write_trailers(w, trailers);
+    free_headers(trailers);
     free(full);
     tcpclose(sock);
 }

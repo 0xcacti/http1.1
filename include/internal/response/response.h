@@ -33,5 +33,6 @@ int write_headers(response_writer_t *writer, headers_t *headers);
 ssize_t write_body(response_writer_t *writer, const char *data, size_t length);
 int write_chunked_body(response_writer_t *writer, const char *data, size_t length);
 int write_chunked_body_done(response_writer_t *writer);
+int write_trailers(response_writer_t *writer, headers_t *trailers);
 
 #endif
