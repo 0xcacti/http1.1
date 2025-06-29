@@ -76,6 +76,56 @@ void handle_200(response_writer_t *w, request_t *req) {
     write_body(w, body, len_body);
 }
 
+void handle_video(response_writer_t *w, request_t *req) {
+    (void)req;
+    const char *path = "./assets/vim.mp4";
+    FILE *file = fopen(path, "rb");
+    if (file == NULL) {
+        handle_500(w, req);
+        return;
+    }
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fclose(file);
+        handle_500(w, req);
+        return;
+    }
+    long file_size = ftell(file);
+    if (file_size < 0) {
+        fclose(file);
+        handle_500(w, req);
+        return;
+    }
+    rewind(file);
+
+    char *buf = malloc((size_t)file_size);
+    if (buf == NULL) {
+        fclose(file);
+        handle_500(w, req);
+        return;
+    }
+
+    size_t n = fread(buf, 1, (size_t)file_size, file);
+    if (n != (size_t)file_size) {
+        free(buf);
+        fclose(file);
+        handle_500(w, req);
+        return;
+    }
+    fclose(file);
+
+    write_status_line(w, RESPONSE_STATUS_OK);
+    headers_t *headers = get_default_headers((size_t)file_size);
+    if (headers == NULL) {
+        fprintf(stderr, "Error creating headers\n");
+        return;
+    }
+    headers_set(headers, "Content-Type", "video/mp4");
+    write_headers(w, headers);
+
+    write_body(w, buf, (size_t)file_size);
+    free(buf);
+}
+
 void forward_proxy(response_writer_t *w, request_t *req, const char *target) {
     ipaddr addr = ipremote("httpbin.org", 80, IPADDR_IPV4, -1);
     tcpsock sock = tcpconnect(addr, -1);
@@ -201,6 +251,10 @@ void handle(response_writer_t *w, request_t *req) {
     }
     if (strcmp(method, "/myproblem") == 0) {
         handle_500(w, req);
+        return;
+    }
+    if (strcmp(method, "/video") == 0) {
+        handle_video(w, req);
         return;
     }
     if (strncmp(method, "/httpbin", 8) == 0) {
